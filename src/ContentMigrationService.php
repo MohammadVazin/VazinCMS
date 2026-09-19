@@ -32,14 +32,30 @@ final class ContentMigrationService
     {
         try { $payload = json_decode($bytes, true, 64, JSON_THROW_ON_ERROR); }
         catch (\Throwable) { throw new InvalidArgumentException('ساختار JSON معتبر نیست.'); }
-        if (!is_array($payload) || !is_array($payload['items'] ?? null)) {
-            throw new InvalidArgumentException('این JSON خروجی قابل‌حمل VazinCMS نیست.');
-        }
+        if (is_array($payload['db'][0]['data']['posts'] ?? null)) return self::ghost($payload);
+        if (!is_array($payload) || !is_array($payload['items'] ?? null)) throw new InvalidArgumentException('این JSON خروجی قابل‌حمل VazinCMS یا Ghost نیست.');
         $provider = (string)($payload['provider'] ?? 'vazin-export');
         if (!in_array($provider, ['vazin-export','vazincms'], true)) {
             throw new InvalidArgumentException('ارائه‌دهندهٔ JSON قابل شناسایی نیست.');
         }
         return ['provider' => 'vazin-export', 'items' => self::normalizeItems($payload['items'])];
+    }
+
+    /** @return array{provider:string,items:list<array<string,mixed>>} */
+    private static function ghost(array $payload): array
+    {
+        $data = (array)$payload['db'][0]['data']; $tagNames = [];
+        foreach ((array)($data['tags'] ?? []) as $tag) if (is_array($tag) && isset($tag['id'], $tag['name'])) $tagNames[(string)$tag['id']] = (string)$tag['name'];
+        $items = [];
+        foreach ((array)$data['posts'] as $post) {
+            if (!is_array($post) || trim((string)($post['title'] ?? '')) === '') continue;
+            $terms = [];
+            foreach ((array)($post['tags'] ?? []) as $tagId) { $name = $tagNames[(string)$tagId] ?? ''; if ($name !== '') $terms[] = ['taxonomy'=>'tag','name'=>$name,'slug'=>'']; }
+            $slug = (string)($post['slug'] ?? '');
+            $items[] = ['source_ref'=>'ghost:'.(string)($post['id'] ?? count($items)),'title'=>(string)$post['title'],'slug'=>$slug,'body'=>(string)($post['html'] ?? $post['mobiledoc'] ?? ''),'content_type'=>'post','locale'=>'fa','source_path'=>$slug !== '' ? '/'.$slug.'/' : '','terms'=>$terms,'featured_source'=>(string)($post['feature_image'] ?? '')];
+            if (count($items) >= self::MAX_ITEMS) break;
+        }
+        return ['provider'=>'ghost-json','items'=>self::normalizeItems($items)];
     }
 
     /** @return array{provider:string,items:list<array<string,mixed>>} */

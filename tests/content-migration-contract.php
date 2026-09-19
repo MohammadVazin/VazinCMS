@@ -15,5 +15,9 @@ $expect($preview['items'][0]['terms'][0]['taxonomy'] === 'category', 'WordPress 
 $expect($preview['items'][0]['featured_source'] === 'https://example.test/media/cover.png', 'Featured media source was not retained.');
 $json = ContentMigrationService::preview('portable.json', json_encode(['provider'=>'vazincms','items'=>[['title'=>'صفحهٔ قابل انتقال','source_ref'=>'page:7','body'=>'متن','content_type'=>'page','locale'=>'fa']]], JSON_UNESCAPED_UNICODE));
 $expect($json['items'][0]['content_type'] === 'page', 'Portable page type was not retained.');
+$ghostExport = ['db' => [['data' => ['tags' => [['id'=>'t1','name'=>'راهنما']], 'posts' => [['id'=>'g1','title'=>'نوشته Ghost','slug'=>'ghost-post','html'=>'<p>متن Ghost</p>','feature_image'=>'https://example.test/media/ghost.png','tags'=>['t1']]]]]]];
+$ghost = ContentMigrationService::preview('ghost.json', json_encode($ghostExport, JSON_UNESCAPED_UNICODE));
+$expect($ghost['provider'] === 'ghost-json' && $ghost['items'][0]['source_ref'] === 'ghost:g1', 'Ghost export was not detected.');
+$expect($ghost['items'][0]['terms'][0]['taxonomy'] === 'tag', 'Ghost tag was not retained.');
 try { ContentMigrationService::preview('unsafe.xml', '<!DOCTYPE x [ <!ENTITY t SYSTEM "file:///etc/passwd"> ]><x/>'); throw new RuntimeException('Unsafe XML was accepted.'); } catch (InvalidArgumentException) {}
 echo "content-migration-contract: OK\n";
