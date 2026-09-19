@@ -4,7 +4,9 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION="$(tr -d '[:space:]' < "$ROOT/VERSION")"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([+-][0-9A-Za-z.-]+)?$ ]]
-[[ "$(basename "$ROOT")" == "VazinCMS-$VERSION" ]]
+# The source tree may be checked out under any directory name in CI or by a
+# contributor. Deployment path validation belongs to deploy/install.sh; the
+# portable release contract validates the versioned contents instead.
 php "$ROOT/scripts/generate-manifest.php" --check
 (cd "$ROOT" && sha256sum -c MANIFEST.sha256 >/dev/null)
 "$PYTHON_BIN" - "$ROOT/vazin-package.json" "$VERSION" <<'PY'
