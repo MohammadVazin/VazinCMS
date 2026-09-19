@@ -46,8 +46,12 @@ case "$SITE_ROOT" in
     SITE_KEY='visa-vazin-online'
     SITE_HOST='visa.vazin.online'
     ;;
+  /var/www/vazin-sites/studio-vazin-online)
+    SITE_KEY='studio-vazin-online'
+    SITE_HOST='studio.vazin.online'
+    ;;
   *)
-    echo 'Site root is not in the exact Travel/Visa managed-site allowlist.' >&2
+    echo 'Site root is not in the exact managed-site allowlist.' >&2
     exit 2
     ;;
 esac
