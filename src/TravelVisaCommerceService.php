@@ -7,6 +7,8 @@ use PDO; use RuntimeException;
 final class TravelVisaCommerceService
 {
     public function __construct(private readonly PDO $pdo) {}
+    /** @return array<string,mixed> */
+    public function order(string $tenant, string $reference): array { $order=$this->get($reference); if (!hash_equals((string)$order['tenant_key'],$tenant)) throw new RuntimeException('order_not_found'); return $order; }
     public function create(string $tenant,string $reference,string $service,?int $customer,string $amount,string $currency): array {
         TravelVisaCommerceContract::invoice('travelvisa:'.$reference,$amount,$currency,'https://example.invalid/return');
         $s=$this->pdo->prepare('INSERT INTO travel_visa_orders(tenant_key,public_ref,service_code,customer_user_id,amount,currency) VALUES(:tenant,:ref,:service,:customer,:amount,:currency)');
