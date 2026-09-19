@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 namespace VazinCMS;
-use VazinCMS\Controllers\{AccountController,AuthController,ContentController,DeveloperApiController,ExtensionController,InstallController};
+use VazinCMS\Controllers\{AccountController,AuthController,ContentController,DeveloperApiController,ExtensionController,InstallController,TravelVisaAdminController};
 use Throwable;
 final class App{
  public function run():void{
@@ -33,6 +33,7 @@ final class App{
   if($path==='/api/v3/forms'){(new DeveloperApiController())->forms();return true;}
   if($path==='/api/v3/learn/courses'){(new DeveloperApiController())->courses();return true;}
   if($path==='/api/v3/connectors'){(new DeveloperApiController())->connectors();return true;}
+  if($path==='/api/v3/travel-visa/orders'){(new TravelVisaAdminController())->api();return true;}
   if($path==='/api/v3/openapi.json'){header('Content-Type: application/json; charset=utf-8');readfile(dirname(__DIR__).'/public/openapi-v3.json');return true;}
 
   if($path==='/admin'||$path==='/admin/pages'){(new ContentController())->pages();return true;}
@@ -44,6 +45,7 @@ final class App{
   if($path==='/admin/revisions'){(new ContentController())->revisions();return true;}
   if($path==='/admin/settings'){(new ContentController())->settings();return true;}
   if($path==='/admin/modules'||$path==='/admin/extensions'){(new ExtensionController())->index();return true;}
+  if($path==='/admin/travel-visa-orders'){(new TravelVisaAdminController())->index();return true;}
   if(preg_match('#^/module-assets/([a-z0-9][a-z0-9-]{1,78})/([A-Za-z0-9._/-]+)$#',$path,$match)===1){ExtensionAsset::serve('module',$match[1],$match[2]);return true;}
   if(preg_match('#^/theme-assets/([a-z0-9][a-z0-9-]{1,78})/([A-Za-z0-9._/-]+)$#',$path,$match)===1){ThemeManager::serveAsset($match[1],$match[2]);return true;}
   if(preg_match('#^/uploads/([a-f0-9]{32}\.(?:jpg|png|webp|gif|pdf))$#',$path,$match)===1){(new ContentController())->publicMedia($match[1]);return true;}
