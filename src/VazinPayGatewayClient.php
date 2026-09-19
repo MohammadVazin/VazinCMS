@@ -69,7 +69,7 @@ final class VazinPayGatewayClient
         $base = $this->baseUrl !== '' ? $this->baseUrl : (string)getenv('VAZINPAY_GATEWAY_URL');
         $key = $this->apiKey !== '' ? $this->apiKey : (string)getenv('VAZINPAY_API_KEY');
         $parts = parse_url($base);
-        if (!is_array($parts) || ($parts['scheme'] ?? '') !== 'https' || strtolower((string)($parts['host'] ?? '')) !== 'pay.vazin.online' || $key === '') throw new RuntimeException('اتصال امن VazinPay تنظیم نشده است.');
+        if (!is_array($parts) || ($parts['scheme'] ?? '') !== 'https' || strtolower((string)($parts['host'] ?? '')) !== 'pay.vazin.online' || isset($parts['user']) || isset($parts['pass']) || isset($parts['port']) || isset($parts['query']) || isset($parts['fragment']) || !in_array((string)($parts['path'] ?? ''), ['', '/'], true) || $key === '') throw new RuntimeException('اتصال امن VazinPay تنظیم نشده است.');
         $headers = ['Authorization'=>'Bearer '.$key, 'Accept'=>'application/json'] + $extraHeaders;
         $result = $this->transport ? ($this->transport)($method, $path, $body, $headers) : $this->curl(rtrim($base,'/').$path, $method, $body, $headers);
         if (!in_array($result['status'], $accepted, true)) throw new RuntimeException('VazinPay پاسخ موفق نداد: HTTP '.$result['status']);
@@ -92,5 +92,5 @@ final class VazinPayGatewayClient
     private static function money(string $value): string { if (preg_match('/^(0|[1-9]\d*)(?:\.(\d{1,2}))?$/', trim($value), $m) !== 1) throw new InvalidArgumentException('مبلغ معتبر نیست.'); return $m[1].'.'.str_pad($m[2] ?? '', 2, '0'); }
     private static function currency(string $value): string { $value = strtoupper(trim($value)); if (preg_match('/^[A-Z]{3}$/', $value) !== 1) throw new InvalidArgumentException('ارز معتبر نیست.'); return $value; }
     private static function text(string $value, int $max, string $label): string { $value = trim($value); $length = function_exists('mb_strlen') ? mb_strlen($value) : strlen($value); if ($value === '' || $length > $max) throw new InvalidArgumentException($label.' معتبر نیست.'); return $value; }
-    private static function returnUrl(string $value): string { $p = parse_url($value); if (!is_array($p) || ($p['scheme'] ?? '') !== 'https' || ($p['host'] ?? '') === '' || isset($p['user'],$p['pass'],$p['fragment'])) throw new InvalidArgumentException('نشانی بازگشت باید HTTPS معتبر باشد.'); return $value; }
+    private static function returnUrl(string $value): string { $p = parse_url($value); if (!is_array($p) || ($p['scheme'] ?? '') !== 'https' || ($p['host'] ?? '') === '' || isset($p['user']) || isset($p['pass']) || isset($p['fragment'])) throw new InvalidArgumentException('نشانی بازگشت باید HTTPS معتبر باشد.'); return $value; }
 }
