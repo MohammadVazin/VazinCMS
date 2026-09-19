@@ -1,0 +1,12 @@
+ALTER TABLE services ADD COLUMN auto_renew INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE services ADD COLUMN billing_cycle TEXT NOT NULL DEFAULT 'monthly';
+ALTER TABLE services ADD COLUMN renewal_price NUMERIC NOT NULL DEFAULT 0;
+ALTER TABLE services ADD COLUMN currency TEXT NOT NULL DEFAULT 'RUB';
+CREATE TABLE IF NOT EXISTS service_renewals (
+ id INTEGER PRIMARY KEY AUTOINCREMENT, service_id INTEGER NOT NULL REFERENCES services(id) ON DELETE RESTRICT,
+ invoice_id INTEGER NOT NULL REFERENCES invoices(id) ON DELETE RESTRICT, renewal_key TEXT NOT NULL UNIQUE,
+ period_end TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'invoiced', created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+ created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_service_renewals_service ON service_renewals(service_id,id DESC);
+INSERT OR IGNORE INTO schema_migrations(version) VALUES('0.6.0');

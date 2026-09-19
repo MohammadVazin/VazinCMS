@@ -1,0 +1,12 @@
+CREATE TABLE IF NOT EXISTS tax_rates (
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ name TEXT NOT NULL, country TEXT NULL, currency TEXT NULL,
+ rate NUMERIC NOT NULL CHECK(rate>=0 AND rate<=100), priority INTEGER NOT NULL DEFAULT 100,
+ is_active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ UNIQUE(country,currency)
+);
+ALTER TABLE invoices ADD COLUMN tax_rate_id INTEGER REFERENCES tax_rates(id);
+ALTER TABLE invoices ADD COLUMN tax_rate NUMERIC NOT NULL DEFAULT 0;
+ALTER TABLE invoices ADD COLUMN tax_amount NUMERIC NOT NULL DEFAULT 0;
+CREATE INDEX IF NOT EXISTS idx_tax_rates_match ON tax_rates(is_active,country,currency,priority);
+INSERT OR IGNORE INTO schema_migrations(version) VALUES('0.9.0');

@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "key": "vazinpay",
+  "type": "module",
+  "name": "اتصال VazinPay",
+  "version": "1.0.0",
+  "description": "ورود پرداخت و نمایش تراکنش‌های سرویس VazinPay.",
+  "author": "Vazin Online",
+  "requires": {"php": ">=8.2.0", "vazincms": ">=10.7.0", "extensions": {}},
+  "bootstrap": "bootstrap.php",
+  "default_status": "active",
+  "protected": true
+}

@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "key": "publishing",
+  "type": "module",
+  "name": "انتشار چندکاناله",
+  "version": "1.0.0",
+  "description": "زمان‌بندی محتوا و انتشار در مقصدهای اجتماعی.",
+  "author": "Vazin Online",
+  "requires": {"php": ">=8.2.0", "vazincms": ">=10.7.0", "extensions": {}},
+  "admin_navigation": [
+    {"label": "انتشار", "path": "/admin/publishing", "order": 30},
+    {"label": "مقصدهای انتشار", "path": "/admin/social-destinations", "order": 31}
+  ],
+  "bootstrap": "bootstrap.php",
+  "default_status": "active",
+  "protected": true
+}

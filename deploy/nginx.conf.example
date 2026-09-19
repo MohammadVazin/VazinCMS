@@ -1,0 +1,19 @@
+server {
+    listen 80;
+    listen [::]:80;
+    server_name vazin.online www.vazin.online travel.vazin.online;
+    root /var/www/vazin-online/public;
+    index index.php;
+    client_max_body_size 64M;
+    server_tokens off;
+    location / { try_files $uri $uri/ /index.php?$query_string; }
+    location = /index.php {
+        include fastcgi_params;
+        fastcgi_pass unix:/run/php/php8.5-fpm.sock;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        fastcgi_param HTTP_PROXY "";
+    }
+    location ~ \.php$ { return 404; }
+    location ~ /\.(?!well-known/) { deny all; }
+    location ~* ^/(?:\.env|database|deploy|src|storage|tests|views)(?:/|$) { deny all; }
+}

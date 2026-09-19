@@ -1,0 +1,10 @@
+ALTER TABLE cms_pages ADD COLUMN editorial_state TEXT NOT NULL DEFAULT 'draft' CHECK(editorial_state IN('draft','in_review','approved','scheduled','published','rejected'));
+ALTER TABLE cms_pages ADD COLUMN review_requested_at TEXT;
+ALTER TABLE cms_pages ADD COLUMN reviewed_at TEXT;
+ALTER TABLE cms_pages ADD COLUMN reviewed_by INTEGER REFERENCES users(id) ON DELETE SET NULL;
+CREATE TABLE IF NOT EXISTS cms_editorial_events(id INTEGER PRIMARY KEY AUTOINCREMENT,page_id INTEGER NOT NULL REFERENCES cms_pages(id) ON DELETE CASCADE,from_state TEXT,to_state TEXT NOT NULL,actor_id INTEGER REFERENCES users(id) ON DELETE SET NULL,note TEXT NOT NULL DEFAULT '',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE INDEX IF NOT EXISTS idx_cms_editorial_events_page ON cms_editorial_events(page_id,id DESC);
+CREATE TABLE IF NOT EXISTS cms_redirects(id INTEGER PRIMARY KEY AUTOINCREMENT,source_path TEXT NOT NULL UNIQUE,target_url TEXT NOT NULL,status_code INTEGER NOT NULL DEFAULT 301 CHECK(status_code IN(301,302,307,308)),hits INTEGER NOT NULL DEFAULT 0,last_hit_at TEXT,created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS cms_search_index(page_id INTEGER PRIMARY KEY REFERENCES cms_pages(id) ON DELETE CASCADE,locale TEXT NOT NULL,content_type TEXT NOT NULL,title TEXT NOT NULL,search_text TEXT NOT NULL,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE INDEX IF NOT EXISTS idx_cms_search_lookup ON cms_search_index(locale,content_type,title);
+INSERT OR IGNORE INTO schema_migrations(version) VALUES('10.15.0');

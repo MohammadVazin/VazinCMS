@@ -1,0 +1,29 @@
+{
+  "schema": "vazin-ui-contract/v1",
+  "standard_version": "1.0.0",
+  "ui": true,
+  "locale": "fa",
+  "direction": "rtl",
+  "entrypoints": [
+    "public/qa/ui/travel-platform-fa.html",
+    "public/qa/ui/visa-platform-fa.html"
+  ],
+  "stylesheets": [
+    "public/assets/travel-40.css",
+    "public/assets/theme-90.css",
+    "public/assets/visa-checkout-1041.css",
+    "public/assets/visa-selector-1042.css",
+    "public/assets/visa-cases-1050.css",
+    "public/assets/platform-1010.css"
+  ],
+  "font": {
+    "family": "Vazirmatn",
+    "token": "--v-ui-font",
+    "asset": "public/assets/Vazirmatn.woff2",
+    "public_path": "/assets/Vazirmatn.woff2",
+    "license": "public/assets/OFL-Vazirmatn.txt",
+    "sha256": "4e3fa217d38fdafc1fea4414ceb58ca5e662cf0ab5fa735a8c8c20e8b42cad92"
+  },
+  "viewports": ["390x844", "1440x1000"],
+  "exceptions": []
+}

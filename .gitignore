@@ -1,0 +1,13 @@
+.env
+.env.*
+!.env.example
+storage/
+public/uploads/
+*.sqlite
+*.pem
+*.key
+.vscode/
+__pycache__/
+*.py[cod]
+*.bak
+*.debug

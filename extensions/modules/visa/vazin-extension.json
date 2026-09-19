@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "key": "visa",
+  "type": "module",
+  "name": "ویزای آنلاین",
+  "version": "1.0.0",
+  "description": "کاتالوگ ویزا، سفارش، پرونده و مدارک مشتری.",
+  "author": "Vazin Online",
+  "requires": {"php": ">=8.2.0", "vazincms": ">=10.7.0", "extensions": {}},
+  "admin_navigation": [
+    {"label": "پرونده‌های ویزا", "path": "/admin/visa-orders", "order": 10},
+    {"label": "اطلاعات ویزا", "path": "/admin/visa-catalog", "order": 11}
+  ],
+  "bootstrap": "bootstrap.php",
+  "default_status": "active",
+  "protected": true
+}

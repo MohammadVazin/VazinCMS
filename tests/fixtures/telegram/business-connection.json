@@ -1,0 +1,19 @@
+{
+  "update_id": 900001,
+  "business_connection": {
+    "id": "bc_fixture_oksana_001",
+    "user": {
+      "id": 700000001,
+      "is_bot": false,
+      "first_name": "Fixture Business Owner",
+      "username": "fixture_owner"
+    },
+    "user_chat_id": 700000001,
+    "date": 1787500000,
+    "rights": {
+      "can_reply": true,
+      "can_read_messages": false
+    },
+    "is_enabled": true
+  }
+}

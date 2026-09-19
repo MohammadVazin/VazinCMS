@@ -1,0 +1,4 @@
+CREATE TABLE IF NOT EXISTS module_instances (id INTEGER PRIMARY KEY AUTOINCREMENT,module_key TEXT NOT NULL UNIQUE,name TEXT NOT NULL,module_type TEXT NOT NULL,base_url TEXT,version TEXT,status TEXT NOT NULL DEFAULT 'planned' CHECK(status IN ('planned','connecting','healthy','degraded','disabled')),capabilities TEXT NOT NULL DEFAULT '[]',settings TEXT NOT NULL DEFAULT '{}',last_seen_at TEXT,last_error TEXT,created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE INDEX IF NOT EXISTS idx_module_instances_status ON module_instances(status,last_seen_at);
+INSERT OR IGNORE INTO module_instances(module_key,name,module_type,status,capabilities) VALUES('vazincms-travel','VazinCMS Travel','cms','planned','["content","travel","localization","seo"]');
+INSERT OR IGNORE INTO schema_migrations(version) VALUES('2.0.0');

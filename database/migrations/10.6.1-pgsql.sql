@@ -1,0 +1,11 @@
+ALTER TABLE user_identities ADD COLUMN IF NOT EXISTS display_name VARCHAR(200);
+ALTER TABLE user_identities ADD COLUMN IF NOT EXISTS display_name_source VARCHAR(16);
+ALTER TABLE user_identities ADD COLUMN IF NOT EXISTS preferred_username VARCHAR(32);
+ALTER TABLE user_identities ADD COLUMN IF NOT EXISTS picture_url VARCHAR(2048);
+ALTER TABLE user_identities ADD COLUMN IF NOT EXISTS locale VARCHAR(5);
+ALTER TABLE user_identities ADD COLUMN IF NOT EXISTS theme VARCHAR(10);
+ALTER TABLE user_identities ADD COLUMN IF NOT EXISTS profile_updated_at BIGINT;
+ALTER TABLE user_identities ADD COLUMN IF NOT EXISTS profile_source VARCHAR(16);
+ALTER TABLE user_identities ADD COLUMN IF NOT EXISTS preferences_shared SMALLINT;
+UPDATE user_identities SET display_name_source=CASE WHEN profile_source='vazin_id' THEN 'vazin_id' ELSE 'local' END WHERE display_name_source IS NULL;
+INSERT INTO schema_migrations(version) VALUES('10.6.1') ON CONFLICT(version) DO NOTHING;

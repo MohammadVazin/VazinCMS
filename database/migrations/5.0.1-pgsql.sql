@@ -1,0 +1,3 @@
+CREATE TABLE IF NOT EXISTS cms_extensions (id BIGSERIAL PRIMARY KEY,extension_type VARCHAR(20) NOT NULL,extension_key VARCHAR(80) NOT NULL UNIQUE,version VARCHAR(32) NOT NULL,status VARCHAR(20) NOT NULL DEFAULT 'active',settings_json TEXT NOT NULL DEFAULT '{}',installed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS cms_starter_history (id BIGSERIAL PRIMARY KEY,starter_key VARCHAR(80) NOT NULL,version VARCHAR(32) NOT NULL,applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP);
+INSERT INTO cms_settings(setting_key,setting_value) VALUES('active_theme','vazin-default') ON CONFLICT(setting_key) DO NOTHING;

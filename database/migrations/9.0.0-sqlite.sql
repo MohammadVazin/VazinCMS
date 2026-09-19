@@ -1,0 +1,9 @@
+INSERT OR IGNORE INTO cms_settings(setting_key,setting_value) VALUES('site_profile','corporate');
+INSERT OR IGNORE INTO cms_settings(setting_key,setting_value) VALUES('primary_color','#3156d3');
+INSERT OR IGNORE INTO cms_settings(setting_key,setting_value) VALUES('hero_title','');
+INSERT OR IGNORE INTO cms_settings(setting_key,setting_value) VALUES('hero_text','');
+INSERT OR IGNORE INTO cms_settings(setting_key,setting_value) VALUES('hero_badge','');
+INSERT OR IGNORE INTO cms_settings(setting_key,setting_value) VALUES('features_json','');
+INSERT OR IGNORE INTO cms_settings(setting_key,setting_value) VALUES('steps_json','');
+INSERT OR IGNORE INTO cms_settings(setting_key,setting_value) VALUES('stats_json','');
+INSERT OR IGNORE INTO cms_settings(setting_key,setting_value) VALUES('faq_json','');

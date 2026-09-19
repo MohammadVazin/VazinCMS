@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "key": "vazin-default",
+  "type": "theme",
+  "name": "قالب پایه وزین",
+  "version": "1.1.1",
+  "description": "قالب حداقلی و چندزبانهٔ همراه Vazin CMS برای راه‌اندازی سایت.",
+  "author": "Vazin Online",
+  "requires": {
+    "php": ">=8.2.0",
+    "vazincms": ">=10.7.0",
+    "extensions": {}
+  },
+  "views": {
+    "head": "views/head.php",
+    "foot": "views/foot.php"
+  },
+  "default_status": "active",
+  "protected": true
+}

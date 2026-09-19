@@ -1,0 +1,1 @@
+.content-fields{grid-template-columns:repeat(3,minmax(160px,1fr));margin-bottom:18px}.seo-fields{grid-template-columns:1fr 1fr;margin-top:18px}.compact{grid-template-columns:repeat(3,minmax(120px,1fr)) auto}.status.published{color:var(--green)}.status.draft{color:#ffc66d}@media(max-width:760px){.content-fields,.seo-fields,.compact{grid-template-columns:1fr}}

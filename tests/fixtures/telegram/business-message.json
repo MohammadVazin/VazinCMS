@@ -1,0 +1,20 @@
+{
+  "update_id": 900002,
+  "business_message": {
+    "business_connection_id": "bc_fixture_oksana_001",
+    "message_id": 501,
+    "from": {
+      "id": 700000101,
+      "is_bot": false,
+      "first_name": "Fixture Customer",
+      "language_code": "ru"
+    },
+    "chat": {
+      "id": 700000101,
+      "type": "private",
+      "first_name": "Fixture Customer"
+    },
+    "date": 1787500100,
+    "text": "Здравствуйте. Хочу выбрать время для консультации."
+  }
+}

@@ -1,0 +1,1 @@
+(()=>{document.querySelectorAll('[data-copy]').forEach(input=>input.addEventListener('click',async()=>{input.select();try{await navigator.clipboard.writeText(input.value);input.style.borderColor='var(--green)'}catch{document.execCommand('copy')}}));})();

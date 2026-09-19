@@ -1,0 +1,10 @@
+ALTER TABLE cms_pages ADD COLUMN IF NOT EXISTS editorial_state VARCHAR(24) NOT NULL DEFAULT 'draft' CHECK(editorial_state IN('draft','in_review','approved','scheduled','published','rejected'));
+ALTER TABLE cms_pages ADD COLUMN IF NOT EXISTS review_requested_at TIMESTAMP;
+ALTER TABLE cms_pages ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMP;
+ALTER TABLE cms_pages ADD COLUMN IF NOT EXISTS reviewed_by BIGINT REFERENCES users(id) ON DELETE SET NULL;
+CREATE TABLE IF NOT EXISTS cms_editorial_events(id BIGSERIAL PRIMARY KEY,page_id BIGINT NOT NULL REFERENCES cms_pages(id) ON DELETE CASCADE,from_state VARCHAR(24),to_state VARCHAR(24) NOT NULL,actor_id BIGINT REFERENCES users(id) ON DELETE SET NULL,note TEXT NOT NULL DEFAULT '',created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE INDEX IF NOT EXISTS idx_cms_editorial_events_page ON cms_editorial_events(page_id,id DESC);
+CREATE TABLE IF NOT EXISTS cms_redirects(id BIGSERIAL PRIMARY KEY,source_path VARCHAR(500) NOT NULL UNIQUE,target_url TEXT NOT NULL,status_code INTEGER NOT NULL DEFAULT 301 CHECK(status_code IN(301,302,307,308)),hits BIGINT NOT NULL DEFAULT 0,last_hit_at TIMESTAMP,created_by BIGINT REFERENCES users(id) ON DELETE SET NULL,created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS cms_search_index(page_id BIGINT PRIMARY KEY REFERENCES cms_pages(id) ON DELETE CASCADE,locale VARCHAR(10) NOT NULL,content_type VARCHAR(80) NOT NULL,title TEXT NOT NULL,search_text TEXT NOT NULL,updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE INDEX IF NOT EXISTS idx_cms_search_lookup ON cms_search_index(locale,content_type,title);
+INSERT INTO schema_migrations(version) VALUES('10.15.0') ON CONFLICT(version) DO NOTHING;

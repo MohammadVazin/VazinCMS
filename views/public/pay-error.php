@@ -1,0 +1,1 @@
+<section class="pay-shell"><div><span class="eyebrow">VAZIN PAY</span><h1><?=htmlspecialchars($title,ENT_QUOTES,'UTF-8')?></h1><p><?=htmlspecialchars($message,ENT_QUOTES,'UTF-8')?></p><a href="/pay/login">تلاش دوباره</a></div></section>

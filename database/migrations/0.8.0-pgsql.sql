@@ -1,0 +1,34 @@
+CREATE TABLE IF NOT EXISTS discounts (
+ id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+ code VARCHAR(40) NOT NULL UNIQUE,
+ type VARCHAR(12) NOT NULL CHECK(type IN ('percent','fixed')),
+ value NUMERIC(18,2) NOT NULL CHECK(value>0),
+ minimum_amount NUMERIC(18,2) NOT NULL DEFAULT 0,
+ currency VARCHAR(8) NULL,
+ max_uses INTEGER NULL CHECK(max_uses IS NULL OR max_uses>0),
+ used_count INTEGER NOT NULL DEFAULT 0,
+ starts_at TIMESTAMP NULL,
+ expires_at TIMESTAMP NULL,
+ is_active SMALLINT NOT NULL DEFAULT 1,
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS discount_redemptions (
+ id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+ discount_id BIGINT NOT NULL REFERENCES discounts(id),
+ order_id BIGINT NOT NULL UNIQUE REFERENCES orders(id) ON DELETE CASCADE,
+ user_id INTEGER NOT NULL REFERENCES users(id),
+ code VARCHAR(40) NOT NULL,
+ discount_amount NUMERIC(18,2) NOT NULL,
+ currency VARCHAR(8) NOT NULL,
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS subtotal NUMERIC(18,2);
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_amount NUMERIC(18,2) NOT NULL DEFAULT 0;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_id BIGINT REFERENCES discounts(id);
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_code VARCHAR(40);
+UPDATE orders SET subtotal=amount WHERE subtotal IS NULL;
+ALTER TABLE orders ALTER COLUMN subtotal SET NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_discounts_active ON discounts(is_active,expires_at);
+CREATE INDEX IF NOT EXISTS idx_discount_redemptions_user ON discount_redemptions(user_id,created_at DESC);
+INSERT INTO schema_migrations(version) VALUES('0.8.0') ON CONFLICT(version) DO NOTHING;

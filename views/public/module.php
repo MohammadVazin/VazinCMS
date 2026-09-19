@@ -1,0 +1,1 @@
+<?php require __DIR__.'/head.php';?><main class="container"><h1><?=htmlspecialchars((string)$module['name'],ENT_QUOTES,'UTF-8')?></h1><p><?=htmlspecialchars((string)$module['description'],ENT_QUOTES,'UTF-8')?></p><p>این ماژول فعال است و آماده دریافت بخش‌های تخصصی در نسخه‌های بعدی است.</p></main><?php require __DIR__.'/foot.php';?>

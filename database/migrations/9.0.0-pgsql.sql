@@ -1,0 +1,9 @@
+INSERT INTO cms_settings(setting_key,setting_value) VALUES('site_profile','corporate') ON CONFLICT(setting_key) DO NOTHING;
+INSERT INTO cms_settings(setting_key,setting_value) VALUES('primary_color','#3156d3') ON CONFLICT(setting_key) DO NOTHING;
+INSERT INTO cms_settings(setting_key,setting_value) VALUES('hero_title','') ON CONFLICT(setting_key) DO NOTHING;
+INSERT INTO cms_settings(setting_key,setting_value) VALUES('hero_text','') ON CONFLICT(setting_key) DO NOTHING;
+INSERT INTO cms_settings(setting_key,setting_value) VALUES('hero_badge','') ON CONFLICT(setting_key) DO NOTHING;
+INSERT INTO cms_settings(setting_key,setting_value) VALUES('features_json','') ON CONFLICT(setting_key) DO NOTHING;
+INSERT INTO cms_settings(setting_key,setting_value) VALUES('steps_json','') ON CONFLICT(setting_key) DO NOTHING;
+INSERT INTO cms_settings(setting_key,setting_value) VALUES('stats_json','') ON CONFLICT(setting_key) DO NOTHING;
+INSERT INTO cms_settings(setting_key,setting_value) VALUES('faq_json','') ON CONFLICT(setting_key) DO NOTHING;

@@ -1,0 +1,12 @@
+{
+  "update_id": 900004,
+  "deleted_business_messages": {
+    "business_connection_id": "bc_fixture_oksana_001",
+    "chat": {
+      "id": 700000101,
+      "type": "private",
+      "first_name": "Fixture Customer"
+    },
+    "message_ids": [501]
+  }
+}

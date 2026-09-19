@@ -1,0 +1,18 @@
+ALTER TABLE users ADD COLUMN session_version INTEGER NOT NULL DEFAULT 1;
+CREATE TABLE IF NOT EXISTS staff_permissions (
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+ permission TEXT NOT NULL, is_granted INTEGER NOT NULL DEFAULT 1,
+ updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+ updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ UNIQUE(user_id,permission)
+);
+CREATE TABLE IF NOT EXISTS active_sessions (
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+ session_hash TEXT NOT NULL UNIQUE, ip_address TEXT, user_agent TEXT,
+ last_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, revoked_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_active_sessions_user ON active_sessions(user_id,last_seen_at DESC);
+INSERT OR IGNORE INTO schema_migrations(version) VALUES('1.5.0');

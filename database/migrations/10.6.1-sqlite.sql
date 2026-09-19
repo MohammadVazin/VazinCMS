@@ -1,0 +1,11 @@
+ALTER TABLE user_identities ADD COLUMN display_name TEXT;
+ALTER TABLE user_identities ADD COLUMN display_name_source TEXT;
+ALTER TABLE user_identities ADD COLUMN preferred_username TEXT;
+ALTER TABLE user_identities ADD COLUMN picture_url TEXT;
+ALTER TABLE user_identities ADD COLUMN locale TEXT;
+ALTER TABLE user_identities ADD COLUMN theme TEXT;
+ALTER TABLE user_identities ADD COLUMN profile_updated_at INTEGER;
+ALTER TABLE user_identities ADD COLUMN profile_source TEXT;
+ALTER TABLE user_identities ADD COLUMN preferences_shared INTEGER;
+UPDATE user_identities SET display_name_source=CASE WHEN profile_source='vazin_id' THEN 'vazin_id' ELSE 'local' END WHERE display_name_source IS NULL;
+INSERT OR IGNORE INTO schema_migrations(version) VALUES('10.6.1');

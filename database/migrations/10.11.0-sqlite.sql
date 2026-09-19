@@ -1,0 +1,15 @@
+CREATE TABLE IF NOT EXISTS cms_content_types(id INTEGER PRIMARY KEY AUTOINCREMENT,content_key TEXT NOT NULL UNIQUE,label TEXT NOT NULL,singular_label TEXT NOT NULL,public INTEGER NOT NULL DEFAULT 1 CHECK(public IN(0,1)),hierarchical INTEGER NOT NULL DEFAULT 0 CHECK(hierarchical IN(0,1)),supports_json TEXT NOT NULL DEFAULT '["title","editor"]',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS cms_taxonomies(id INTEGER PRIMARY KEY AUTOINCREMENT,taxonomy_key TEXT NOT NULL UNIQUE,label TEXT NOT NULL,singular_label TEXT NOT NULL,hierarchical INTEGER NOT NULL DEFAULT 0 CHECK(hierarchical IN(0,1)),public INTEGER NOT NULL DEFAULT 1 CHECK(public IN(0,1)),created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS cms_terms(id INTEGER PRIMARY KEY AUTOINCREMENT,taxonomy_id INTEGER NOT NULL REFERENCES cms_taxonomies(id) ON DELETE CASCADE,parent_id INTEGER REFERENCES cms_terms(id) ON DELETE SET NULL,slug TEXT NOT NULL,name TEXT NOT NULL,description TEXT NOT NULL DEFAULT '',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,UNIQUE(taxonomy_id,slug));
+CREATE INDEX IF NOT EXISTS idx_cms_terms_taxonomy ON cms_terms(taxonomy_id,parent_id,name);
+CREATE TABLE IF NOT EXISTS cms_term_relationships(page_id INTEGER NOT NULL REFERENCES cms_pages(id) ON DELETE CASCADE,term_id INTEGER NOT NULL REFERENCES cms_terms(id) ON DELETE CASCADE,position INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(page_id,term_id));
+CREATE TABLE IF NOT EXISTS cms_autosaves(id INTEGER PRIMARY KEY AUTOINCREMENT,page_id INTEGER REFERENCES cms_pages(id) ON DELETE CASCADE,actor_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,content_hash TEXT NOT NULL,title TEXT NOT NULL DEFAULT '',body TEXT NOT NULL DEFAULT '',metadata_json TEXT NOT NULL DEFAULT '{}',saved_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,UNIQUE(page_id,actor_id));
+ALTER TABLE cms_pages ADD COLUMN trash_status TEXT NOT NULL DEFAULT 'active' CHECK(trash_status IN('active','trash'));
+ALTER TABLE cms_pages ADD COLUMN trashed_at TEXT;
+ALTER TABLE cms_pages ADD COLUMN trashed_by INTEGER REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE cms_page_revisions ADD COLUMN revision_kind TEXT NOT NULL DEFAULT 'manual' CHECK(revision_kind IN('manual','autosave','restore','pre-trash'));
+ALTER TABLE cms_page_revisions ADD COLUMN content_hash TEXT NOT NULL DEFAULT '';
+ALTER TABLE cms_page_revisions ADD COLUMN metadata_json TEXT NOT NULL DEFAULT '{}';
+INSERT OR IGNORE INTO cms_content_types(content_key,label,singular_label,public,hierarchical,supports_json) VALUES('page','صفحه','صفحه',1,1,'["title","editor","revisions","author","custom-fields"]'),('post','نوشته','نوشته',1,0,'["title","editor","revisions","author","excerpt","thumbnail","custom-fields"]');
+INSERT OR IGNORE INTO cms_taxonomies(taxonomy_key,label,singular_label,hierarchical,public) VALUES('category','دسته‌بندی‌ها','دسته‌بندی',1,1),('tag','برچسب‌ها','برچسب',0,1);
+INSERT OR IGNORE INTO schema_migrations(version) VALUES('10.11.0');

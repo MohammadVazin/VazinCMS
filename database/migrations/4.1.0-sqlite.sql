@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS cms_settings (setting_key TEXT PRIMARY KEY,setting_value TEXT NOT NULL DEFAULT '',updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+INSERT OR IGNORE INTO cms_settings(setting_key,setting_value) VALUES('site_name','VazinCMS'),('site_tagline','سایت جدید شما'),('default_locale','fa'),('contact_email','');
+CREATE TABLE IF NOT EXISTS cms_pages (id INTEGER PRIMARY KEY AUTOINCREMENT,slug TEXT NOT NULL,locale TEXT NOT NULL DEFAULT 'fa',title TEXT NOT NULL,body TEXT NOT NULL DEFAULT '',status TEXT NOT NULL DEFAULT 'draft',is_home INTEGER NOT NULL DEFAULT 0,author_id INTEGER REFERENCES users(id),created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,UNIQUE(slug,locale));
+CREATE TABLE IF NOT EXISTS cms_modules (module_key TEXT PRIMARY KEY,name TEXT NOT NULL,version TEXT,is_enabled INTEGER NOT NULL DEFAULT 0,description TEXT,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+INSERT OR IGNORE INTO cms_modules(module_key,name,version,is_enabled,description) VALUES('travel','ماژول سفر','1.0.0',0,'مقصدها، خدمات، مقاله‌ها و درخواست سفر'),('visa','ماژول ویزا','1.0.0',0,'صفحات و جریان‌های اختصاصی خدمات ویزا');
+INSERT OR IGNORE INTO schema_migrations(version) VALUES('4.1.0');

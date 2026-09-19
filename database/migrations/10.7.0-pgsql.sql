@@ -1,0 +1,15 @@
+ALTER TABLE cms_extensions ADD COLUMN IF NOT EXISTS name VARCHAR(160);
+ALTER TABLE cms_extensions ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT '';
+ALTER TABLE cms_extensions ADD COLUMN IF NOT EXISTS source VARCHAR(20) NOT NULL DEFAULT 'legacy';
+ALTER TABLE cms_extensions ADD COLUMN IF NOT EXISTS package_path TEXT NOT NULL DEFAULT '';
+ALTER TABLE cms_extensions ADD COLUMN IF NOT EXISTS checksum CHAR(64) NOT NULL DEFAULT '';
+ALTER TABLE cms_extensions ADD COLUMN IF NOT EXISTS manifest_json TEXT NOT NULL DEFAULT '{}';
+ALTER TABLE cms_extensions ADD COLUMN IF NOT EXISTS last_error TEXT;
+ALTER TABLE cms_extensions ADD COLUMN IF NOT EXISTS activated_at TIMESTAMP;
+ALTER TABLE cms_extensions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP;
+UPDATE cms_extensions SET extension_type='module' WHERE extension_type='plugin';
+UPDATE cms_extensions SET name=extension_key WHERE name IS NULL OR name='';
+UPDATE cms_extensions SET status='inactive' WHERE status NOT IN ('inactive','active','broken','removed');
+ALTER TABLE cms_extensions ALTER COLUMN name SET NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_cms_extensions_type_status ON cms_extensions(extension_type,status,extension_key);
+INSERT INTO schema_migrations(version) VALUES('10.7.0') ON CONFLICT(version) DO NOTHING;

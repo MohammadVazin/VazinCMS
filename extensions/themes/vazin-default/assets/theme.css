@@ -1,0 +1,2 @@
+/* Stable extension hook for the bundled theme. Customer themes can replace the complete public shell. */
+:root { --vz-theme-package: "vazin-default-1.1.1"; }

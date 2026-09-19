@@ -1,0 +1,1 @@
+.wallet-totals,.wallet-summary{grid-template-columns:repeat(auto-fit,minmax(220px,1fr));margin-bottom:22px}.wallet-totals h2,.wallet-summary h2{font-size:28px;margin:10px 0 0}.muted{color:var(--muted)}

@@ -1,0 +1,31 @@
+{
+  "tenant_key": "agency-demo",
+  "primary_domain": "demo.example.test",
+  "brand_name": "نمونه آژانس سفر",
+  "site_profile": "travel",
+  "primary_color": "#3156d3",
+  "default_locale": "fa",
+  "enabled_locales": ["fa", "ru", "en"],
+  "operating_mode": "lead_only",
+  "connector_metadata": [
+    {
+      "provider_key": "future-b2b-provider",
+      "label": "اتصال قراردادی آینده",
+      "mode": "manual_fulfilment",
+      "capabilities": ["quote", "status"]
+    }
+  ],
+  "feature_gates": {
+    "VAZIN_VISA_DIRECT_SALES_ENABLED": false,
+    "EXTERNAL_DELIVERY_ENABLED": false,
+    "TELEGRAM_NETWORK_ENABLED": false,
+    "TELEGRAM_ALERT_DELIVERY_ENABLED": false,
+    "TELEGRAM_BUSINESS_ENABLED": false,
+    "TELEGRAM_ASSISTANT_DELIVERY_ENABLED": false,
+    "TELEGRAM_ASSISTANT_AUTOREPLY_ENABLED": false,
+    "TELEGRAM_ASSISTANT_PREVIEW_ENABLED": false
+  },
+  "telegram": {
+    "enabled": false
+  }
+}

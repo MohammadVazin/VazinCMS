@@ -1,0 +1,24 @@
+ALTER TABLE products ADD COLUMN IF NOT EXISTS description TEXT;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS price_amount NUMERIC(18,2) NOT NULL DEFAULT 0;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS currency VARCHAR(8) NOT NULL DEFAULT 'RUB';
+ALTER TABLE products ADD COLUMN IF NOT EXISTS billing_cycle VARCHAR(20) NOT NULL DEFAULT 'monthly';
+ALTER TABLE products ADD COLUMN IF NOT EXISTS is_active SMALLINT NOT NULL DEFAULT 1;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP;
+CREATE TABLE IF NOT EXISTS orders (
+ id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, order_number VARCHAR(32) NOT NULL UNIQUE,
+ user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE RESTRICT, product_id INTEGER REFERENCES products(id) ON DELETE SET NULL,
+ product_name VARCHAR(160) NOT NULL, amount NUMERIC(18,2) NOT NULL CHECK(amount>=0), currency VARCHAR(8) NOT NULL,
+ status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','paid','processing','completed','cancelled','refunded')),
+ notes TEXT, created_by INTEGER REFERENCES users(id) ON DELETE SET NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_orders_user ON orders(user_id,created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status,created_at DESC);
+CREATE TABLE IF NOT EXISTS services (
+ id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+ product_id INTEGER REFERENCES products(id) ON DELETE SET NULL, order_id BIGINT REFERENCES orders(id) ON DELETE SET NULL,
+ name VARCHAR(180) NOT NULL, status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','active','suspended','cancelled','expired')),
+ identifier VARCHAR(255), started_at TIMESTAMP, expires_at TIMESTAMP, notes TEXT, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_services_user ON services(user_id,status);
+CREATE INDEX IF NOT EXISTS idx_services_expiry ON services(expires_at);
+INSERT INTO schema_migrations(version) VALUES('0.3.0') ON CONFLICT(version) DO NOTHING;

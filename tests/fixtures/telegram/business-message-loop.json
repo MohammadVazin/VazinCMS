@@ -1,0 +1,25 @@
+{
+  "update_id": 900005,
+  "business_message": {
+    "business_connection_id": "bc_fixture_oksana_001",
+    "message_id": 502,
+    "from": {
+      "id": 700000001,
+      "is_bot": false,
+      "first_name": "Fixture Business Owner"
+    },
+    "sender_business_bot": {
+      "id": 700000999,
+      "is_bot": true,
+      "first_name": "Fixture Assistant Bot",
+      "username": "fixture_assistant_bot"
+    },
+    "chat": {
+      "id": 700000101,
+      "type": "private",
+      "first_name": "Fixture Customer"
+    },
+    "date": 1787500300,
+    "text": "Выберите удобное время в приложении."
+  }
+}

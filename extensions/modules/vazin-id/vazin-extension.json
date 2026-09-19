@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "key": "vazin-id",
+  "type": "module",
+  "name": "اتصال Vazin ID",
+  "version": "1.0.0",
+  "description": "ورود مستقیم کاربران سایت با هویت مرکزی Vazin ID.",
+  "author": "Vazin Online",
+  "requires": {"php": ">=8.2.0", "vazincms": ">=10.8.0", "extensions": {}},
+  "admin_navigation": [{"label": "Vazin ID", "path": "/admin/vazin-id", "order": 80}],
+  "bootstrap": "bootstrap.php",
+  "default_status": "active",
+  "protected": true
+}

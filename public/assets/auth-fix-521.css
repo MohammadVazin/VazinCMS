@@ -1,0 +1,27 @@
+.auth {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 16px;
+}
+
+.auth h1,
+.auth p {
+  margin: 0;
+}
+
+.auth p {
+  min-height: 1.9em;
+  overflow-wrap: anywhere;
+}
+
+.auth form {
+  margin-top: 8px;
+  text-align: right;
+}
+
+.auth > .button {
+  align-self: center;
+  min-width: 104px;
+  margin-top: 4px;
+}
