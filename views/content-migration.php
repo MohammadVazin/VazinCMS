@@ -5,7 +5,7 @@ $items = is_array($preview['items'] ?? null) ? $preview['items'] : [];
 ?>
 <section class="panel">
   <h1>انتقال محتوا</h1>
-  <p>فایل خروجی را بررسی کنید و سپس محتوا را به‌صورت پیش‌نویس وارد کنید. انتشار و انتقال رسانه‌ها خودکار نیست.</p>
+  <p>فایل خروجی را بررسی کنید و سپس محتوا را به‌صورت پیش‌نویس وارد کنید. برای اتصال تصویر شاخص محلی، ابتدا آرشیو رسانه را وارد کنید.</p>
   <?php if ($message): ?><div class="alert success"><?=Security::e($message)?></div><?php endif; ?>
   <?php if ($error): ?><div class="alert error"><?=Security::e($error)?></div><?php endif; ?>
   <form method="post" enctype="multipart/form-data" class="stack">
@@ -22,7 +22,7 @@ $items = is_array($preview['items'] ?? null) ? $preview['items'] : [];
     <input type="hidden" name="_csrf" value="<?=Security::e(Security::csrf())?>">
     <input type="hidden" name="action" value="media">
     <label>آرشیو رسانه <input type="file" name="media_archive" accept=".zip,application/zip" required></label>
-    <p class="muted">سقف آرشیو ۵۰ مگابایت، هر فایل ۱۰ مگابایت و حداکثر ۵۰۰ ورودی است. نشانی‌های تصاویر در متن محتوا در این مرحله تغییر نمی‌کنند.</p>
+    <p class="muted">سقف آرشیو ۵۰ مگابایت، هر فایل ۱۰ مگابایت و حداکثر ۵۰۰ ورودی است. نخستین تصویر هر نوشته، فقط در صورت تطبیق با یک فایل محلی، به تصویر شاخص تبدیل می‌شود.</p>
     <button type="submit">بررسی و ورود رسانه‌ها</button>
   </form>
 </section>

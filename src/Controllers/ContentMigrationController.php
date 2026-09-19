@@ -52,8 +52,9 @@ final class ContentMigrationController
                 if ($known->fetchColumn()) { $skipped++; continue; }
                 $slug = $this->availableSlug($pdo, (string)$item['slug'], (string)$item['locale']);
                 $body = (string)$item['body']; $blocks = BlockEditor::encode(BlockEditor::legacy($body));
-                $insert = $pdo->prepare('INSERT INTO cms_pages(slug,locale,title,body,status,is_home,author_id,content_type,robots_index,robots_follow,schema_type,block_schema_version,block_document,source_provider,source_ref) VALUES(:slug,:locale,:title,:body,\'draft\',0,:author,:type,0,0,:schema,1,:blocks,:provider,:ref)');
-                $insert->execute(['slug'=>$slug,'locale'=>$item['locale'],'title'=>$item['title'],'body'=>$body,'author'=>$user['id'],'type'=>$item['content_type'],'schema'=>$item['content_type']==='post'?'Article':'WebPage','blocks'=>$blocks,'provider'=>$provider,'ref'=>$item['source_ref']]);
+                $featured = $this->resolveLocalMedia($pdo, (string)($item['featured_source'] ?? ''));
+                $insert = $pdo->prepare('INSERT INTO cms_pages(slug,locale,title,body,status,is_home,author_id,featured_image,content_type,robots_index,robots_follow,schema_type,block_schema_version,block_document,source_provider,source_ref) VALUES(:slug,:locale,:title,:body,\'draft\',0,:author,:featured,:type,0,0,:schema,1,:blocks,:provider,:ref)');
+                $insert->execute(['slug'=>$slug,'locale'=>$item['locale'],'title'=>$item['title'],'body'=>$body,'author'=>$user['id'],'featured'=>$featured,'type'=>$item['content_type'],'schema'=>$item['content_type']==='post'?'Article':'WebPage','blocks'=>$blocks,'provider'=>$provider,'ref'=>$item['source_ref']]);
                 $pageId = (int)$pdo->lastInsertId();
                 $this->syncTerms($pdo, $pageId, $item['terms'] ?? []);
                 $sourcePath = (string)($item['source_path'] ?? '');
@@ -90,5 +91,17 @@ final class ContentMigrationController
             if ($termId) $ids[] = (int)$termId;
         }
         if ($ids) ContentModel::assignTerms($pdo, $pageId, $ids);
+    }
+
+    private function resolveLocalMedia($pdo, string $source): string
+    {
+        $path = parse_url($source, PHP_URL_PATH); $name = is_string($path) ? basename($path) : '';
+        if ($name === '' || strlen($name) > 255) return '';
+        $query = $pdo->query("SELECT stored_name,metadata_json FROM cms_media WHERE metadata_json<>'' ORDER BY id DESC LIMIT 2000");
+        foreach ($query->fetchAll() as $media) {
+            $metadata = json_decode((string)$media['metadata_json'], true);
+            if (is_array($metadata) && isset($metadata['original_path']) && hash_equals(strtolower($name), strtolower(basename((string)$metadata['original_path'])))) return '/uploads/' . (string)$media['stored_name'];
+        }
+        return '';
     }
 }

@@ -77,6 +77,8 @@ final class ContentMigrationService
                 if ($name !== '') $terms[] = ['taxonomy' => $domain === 'post_tag' ? 'tag' : 'category', 'name' => $name, 'slug' => $slug];
             }
             $path = parse_url((string)$node->link, PHP_URL_PATH);
+            $featuredSource = '';
+            if (preg_match('/<img\b[^>]*\bsrc\s*=\s*["\']([^"\']+)["\']/i', (string)$c->encoded, $imageMatch)) $featuredSource = (string)$imageMatch[1];
             $items[] = [
                 'source_ref' => 'wp:' . trim((string)$w->post_id),
                 'title' => (string)$node->title,
@@ -86,6 +88,7 @@ final class ContentMigrationService
                 'locale' => 'fa',
                 'source_path' => is_string($path) ? $path : '',
                 'terms' => $terms,
+                'featured_source' => $featuredSource,
             ];
             if (count($items) >= self::MAX_ITEMS) break;
         }
@@ -135,6 +138,7 @@ final class ContentMigrationService
                 'locale' => $locale,
                 'source_path' => self::sourcePath((string)($item['source_path'] ?? '')),
                 'terms' => self::terms($item['terms'] ?? []),
+                'featured_source' => self::mediaSource((string)($item['featured_source'] ?? '')),
             ];
         }
         if ($out === []) throw new InvalidArgumentException('محتوای قابل انتقالی در فایل پیدا نشد.');
@@ -162,6 +166,14 @@ final class ContentMigrationService
     {
         $path = trim($path);
         return preg_match('#^/[A-Za-z0-9/_\-.]{1,498}$#', $path) ? $path : '';
+    }
+
+    private static function mediaSource(string $source): string
+    {
+        $source = trim($source);
+        if ($source === '' || strlen($source) > 1000 || preg_match('/[\x00-\x1f\x7f]/', $source)) return '';
+        if (str_starts_with($source, '/') || filter_var($source, FILTER_VALIDATE_URL)) return $source;
+        return '';
     }
 
     /** @return list<array{taxonomy:string,name:string,slug:string}> */
