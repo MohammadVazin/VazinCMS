@@ -82,5 +82,7 @@ function isExcludedReleasePath(string $relative): bool
     }
 
     $segments = explode('/', $relative);
-    return in_array('__pycache__', $segments, true) || str_ends_with($relative, '.pyc');
+    return in_array('__pycache__', $segments, true)
+        || str_ends_with($relative, '.pyc')
+        || str_ends_with($relative, '.bak');
 }
