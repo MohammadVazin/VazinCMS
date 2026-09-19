@@ -55,7 +55,7 @@ final class Access
             '/admin/renewals' => 'services', '/admin/tickets' => 'support', '/admin/wallets' => 'finance',
             '/admin/finance' => 'finance', '/admin/taxes' => 'finance', '/admin/notifications' => 'notifications',
             '/admin/audit' => 'audit', '/admin/system' => 'system',
-            '/admin/travel' => 'content', '/admin/visa-orders' => 'sales',
+            '/admin/travel' => 'content', '/admin/visa-orders' => 'sales', '/admin/travel-visa-orders' => 'sales',
             '/admin/telegram' => 'telegram', '/admin/travel-alerts' => 'telegram',
         ];
         foreach ($map as $prefix => $permission) {

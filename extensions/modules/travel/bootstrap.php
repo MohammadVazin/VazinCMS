@@ -1,9 +1,11 @@
 <?php
 declare(strict_types=1);
 use VazinCMS\ModuleContext;
-use VazinCMS\Controllers\{CatalogController,ContentController,ManualVisaCaseController,PublicTravelController,TravelController,TravelOrderController,TravelPlatformController};
+use VazinCMS\Controllers\{CatalogController,ContentController,ManualVisaCaseController,PublicTravelController,TravelController,TravelOrderController,TravelPlatformController,TravelVisaAdminController};
 return static function(ModuleContext $module):void{
     $module->any('/admin/travel',static fn(array $match)=>(new TravelController())->index());
+    $module->get('/admin/travel-visa-orders',static fn(array $match)=>(new TravelVisaAdminController())->index());
+    $module->get('/api/v3/travel-visa/orders',static fn(array $match)=>(new TravelVisaAdminController())->api());
     $module->regex(['GET','POST'],'#^/admin/travel/(\d+)$#',static fn(array $match)=>(new TravelController())->edit((int)$match[1]));
     $module->any('/admin/travel-catalog',static fn(array $match)=>(new CatalogController())->travel());
     $module->any('/admin/travel-connectors',static fn(array $match)=>(new TravelPlatformController())->connectors());
