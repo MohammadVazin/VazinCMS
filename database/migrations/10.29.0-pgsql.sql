@@ -1,0 +1,2 @@
+CREATE TABLE IF NOT EXISTS cms_update_feed_state(channel VARCHAR(32) PRIMARY KEY,current_version VARCHAR(64) NOT NULL,available_version VARCHAR(64),status VARCHAR(32) NOT NULL CHECK(status IN('unchecked','current','update_available','unavailable')),feed_url TEXT NOT NULL,release_url TEXT,checksum_url TEXT,signature_url TEXT,public_key_url TEXT,release_notes_url TEXT,minimum_current_version VARCHAR(64),error_message TEXT,checked_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP);
+INSERT INTO schema_migrations(version) VALUES('10.29.0') ON CONFLICT(version) DO NOTHING;

@@ -14,6 +14,8 @@ foreach($iterator as$entry){
     $relative=str_replace(DIRECTORY_SEPARATOR,'/',substr($entry->getPathname(),strlen($root)+1));
     $segments=explode('/',$relative);
     if(
+        $relative==='.git' ||
+        str_starts_with($relative,'.git/') ||
         $relative==='.env' ||
         (str_starts_with($relative,'.env.') && $relative!=='.env.example') ||
         $relative==='storage' ||
@@ -21,7 +23,8 @@ foreach($iterator as$entry){
         $relative==='public/uploads' ||
         str_starts_with($relative,'public/uploads/') ||
         in_array('__pycache__',$segments,true) ||
-        str_ends_with($relative,'.pyc')
+        str_ends_with($relative,'.pyc') ||
+        str_ends_with($relative,'.bak')
     )continue;
     if($entry->isDir())$directories[]=$relative;elseif($entry->isFile())$files[]=$relative;
 }

@@ -20,7 +20,7 @@ cp .env.example .env
 ./deploy/install.sh
 ```
 
-Current release: **10.28.0**. Upgrades are supported from 10.27.0 according to `vazin-package.json`. Use the release package and rollback procedure documented in the official support portal.
+Current release: **10.29.0**. Upgrades are supported from 10.28.0 according to `vazin-package.json`. The administrator panel verifies the official update feed but never downloads or executes remote code; use the release package and rollback procedure documented in the official support portal.
 
 ## Extensibility
 

@@ -8,4 +8,4 @@ Do not include passwords, API keys, tokens, personal data, or production databas
 
 ## Supported version
 
-The current supported stable release is 10.28.0. Security fixes are published through the official release channel and announced to managed installations.
+The current supported stable release is 10.29.0. Security fixes are published through the official release channel and announced to managed installations.

@@ -5,7 +5,7 @@ use PDO; use RuntimeException; use Throwable;
 
 final class Scheduler
 {
-    public static function types():array{return ['webhook_queue'=>'پردازش صف Webhook','notification_queue'=>'پردازش اعلان‌ها','service_expiry'=>'بررسی سررسید سرویس‌ها','audit_cleanup'=>'پاک‌سازی رویدادهای قدیمی','content_publish'=>'انتشار محتوای زمان‌بندی‌شده','trust_scan'=>'اسکن اعتماد و Advisory بسته‌ها'];}
+    public static function types():array{return ['webhook_queue'=>'پردازش صف Webhook','notification_queue'=>'پردازش اعلان‌ها','service_expiry'=>'بررسی سررسید سرویس‌ها','audit_cleanup'=>'پاک‌سازی رویدادهای قدیمی','content_publish'=>'انتشار محتوای زمان‌بندی‌شده','trust_scan'=>'اسکن اعتماد و Advisory بسته‌ها','update_feed'=>'بررسی فید رسمی به‌روزرسانی'];}
     public static function runDue(?int $onlyId=null):array
     {
         $pdo=Database::connection();$where=$onlyId?'id=:id':"is_active=1 AND next_run_at<=CURRENT_TIMESTAMP";$s=$pdo->prepare('SELECT * FROM scheduled_tasks WHERE '.$where.' ORDER BY next_run_at ASC LIMIT 25');$s->execute($onlyId?['id'=>$onlyId]:[]);$result=[];
@@ -32,6 +32,7 @@ final class Scheduler
             'audit_cleanup'=>self::cleanup($pdo,max(30,min(3650,(int)($config['retention_days']??365)))),
             'content_publish'=>self::publishScheduled($pdo),
             'trust_scan'=>json_encode(TrustScanner::run($pdo),JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),
+            'update_feed'=>json_encode(UpdateFeedService::refresh($pdo),JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),
             default=>throw new RuntimeException('نوع وظیفه پشتیبانی نمی‌شود.'),
         };
     }

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Explicit code rollback for the external-runtime VazinCMS 10.27.0 upgrade.
+# Explicit code rollback for the external-runtime VazinCMS 10.28.0 upgrade.
 set -Eeuo pipefail
 umask 077
 
@@ -34,8 +34,8 @@ case "$SITE_ROOT" in
     ;;
 esac
 
-OLD_VERSION='10.27.0'
-NEW_VERSION='10.28.0'
+OLD_VERSION='10.28.0'
+NEW_VERSION='10.29.0'
 STATE_ROOT="/var/lib/vazincms-deploy/$SITE_KEY"
 HELPER="$STATE_ROOT/atomic-release-$NEW_VERSION.py"
 

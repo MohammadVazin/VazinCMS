@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace VazinCMS\Controllers;
 
 use Throwable;
-use VazinCMS\{Audit,Auth,ExtensionManager,Security,View};
+use VazinCMS\{Audit,Auth,Database,ExtensionManager,Security,UpdateFeedService,View};
 
 final class ExtensionController
 {
@@ -27,10 +27,12 @@ final class ExtensionController
                     ExtensionManager::deactivate($key);
                 } elseif ($action === 'archive') {
                     ExtensionManager::archive($key);
+                } elseif ($action === 'refresh_update_feed') {
+                    UpdateFeedService::refresh(Database::connection(), true);
                 } else {
                     throw new \InvalidArgumentException('عملیات افزونه معتبر نیست.');
                 }
-                Audit::log('cms.extension_' . $action, 'وضعیت افزونه تغییر کرد', (int) $user['id'], [
+                Audit::log('cms.extension_' . $action, 'عملیات افزونه یا بررسی به‌روزرسانی انجام شد', (int) $user['id'], [
                     'extension_key' => $key,
                 ]);
                 header('Location: /admin/extensions?saved=1');
@@ -40,6 +42,7 @@ final class ExtensionController
             }
         }
         $extensions = ExtensionManager::all();
-        View::render('extensions', compact('user', 'extensions', 'error', 'message'));
+        $updateStatus = UpdateFeedService::refresh(Database::connection());
+        View::render('extensions', compact('user', 'extensions', 'updateStatus', 'error', 'message'));
     }
 }
