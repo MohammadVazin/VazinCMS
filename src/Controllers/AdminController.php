@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 namespace VazinCMS\Controllers;
-use PDO; use Throwable; use VazinCMS\{Access,Audit,Auth,Database,DeliveryPolicy,ReleaseChannel,Scheduler,Security,View,Webhook};
+use PDO; use Throwable; use VazinCMS\{Access,Audit,Auth,Database,DeliveryPolicy,FleetStatusService,ReleaseChannel,Scheduler,Security,View,Webhook};
 
 final class AdminController
 {
@@ -31,7 +31,7 @@ final class AdminController
     {
         $user=$this->staff(); $pdo=Database::connection();
         $stats=['users'=>(int)$pdo->query("SELECT COUNT(*) FROM users WHERE role='client'")->fetchColumn(),'services'=>(int)$pdo->query("SELECT COUNT(*) FROM services WHERE status='active'")->fetchColumn(),'orders'=>(int)$pdo->query("SELECT COUNT(*) FROM orders WHERE status IN ('pending','paid','processing')")->fetchColumn(),'tickets'=>(int)$pdo->query("SELECT COUNT(*) FROM tickets WHERE status<>'closed'")->fetchColumn()];
-        $events=$pdo->query('SELECT action,description,created_at FROM audit_logs ORDER BY id DESC LIMIT 8')->fetchAll(); $releaseChannel=ReleaseChannel::stable(); View::render('dashboard',compact('user','stats','events','releaseChannel'));
+        $events=$pdo->query('SELECT action,description,created_at FROM audit_logs ORDER BY id DESC LIMIT 8')->fetchAll(); $releaseChannel=ReleaseChannel::stable(); $fleetStatus=FleetStatusService::summary(); View::render('dashboard',compact('user','stats','events','releaseChannel','fleetStatus'));
     }
     public function users(): void
     {

@@ -48,6 +48,19 @@
 </section>
 <?php endif; ?>
 
+<?php if (is_array($fleetStatus ?? null)): ?>
+<section class="panel" aria-live="polite">
+  <h2>وضعیت ناوگان VazinCMS</h2>
+  <p>کنترل فقط‌خواندنی نسخه و سلامت نصب‌های رسمی وزین.</p>
+  <div class="table"><table><thead><tr><th>سایت</th><th>نسخه</th><th>وضعیت</th></tr></thead><tbody>
+    <?php foreach (($fleetStatus['sites'] ?? []) as $site): ?>
+      <tr><td><span><?=Security::e((string)$site['label'])?></span><br><code dir="ltr"><?=Security::e((string)$site['host'])?></code></td><td><code dir="ltr"><?=Security::e((string)($site['version'] ?? '—'))?></code></td><td><span class="badge"><?=Security::e((string)$site['label_status'])?></span></td></tr>
+    <?php endforeach; ?>
+  </tbody></table></div>
+  <p>نسخهٔ مرجع: <code dir="ltr"><?=Security::e((string)($fleetStatus['expected_version'] ?? '—'))?></code></p>
+</section>
+<?php endif; ?>
+
 <section class="grid stats">
   <article>
     <b><?=$stats['users']?></b>
