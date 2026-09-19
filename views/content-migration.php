@@ -15,6 +15,17 @@ $items = is_array($preview['items'] ?? null) ? $preview['items'] : [];
     <button type="submit">بررسی فایل</button>
   </form>
 </section>
+<section class="panel">
+  <h2>انتقال رسانه از ZIP</h2>
+  <p>آرشیو رسانه را جداگانه وارد کتابخانه کنید. فقط JPG، PNG، WebP، GIF و PDF معتبر پذیرفته می‌شوند؛ فایل‌های تکراری یا ناامن وارد نمی‌شوند.</p>
+  <form method="post" enctype="multipart/form-data" class="stack">
+    <input type="hidden" name="_csrf" value="<?=Security::e(Security::csrf())?>">
+    <input type="hidden" name="action" value="media">
+    <label>آرشیو رسانه <input type="file" name="media_archive" accept=".zip,application/zip" required></label>
+    <p class="muted">سقف آرشیو ۵۰ مگابایت، هر فایل ۱۰ مگابایت و حداکثر ۵۰۰ ورودی است. نشانی‌های تصاویر در متن محتوا در این مرحله تغییر نمی‌کنند.</p>
+    <button type="submit">بررسی و ورود رسانه‌ها</button>
+  </form>
+</section>
 <?php if ($items): ?>
 <section class="panel">
   <h2>پیش‌نمایش امن (<?=count($items)?> مورد)</h2>

@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace VazinCMS\Controllers;
 
-use VazinCMS\{Audit,Auth,BlockEditor,CacheStore,ContentMigrationService,ContentModel,Database,ExtensionRuntime,RedirectManager,SearchIndex,Security,View};
+use VazinCMS\{Audit,Auth,BlockEditor,CacheStore,ContentMigrationService,ContentModel,Database,ExtensionRuntime,MediaArchiveImporter,RedirectManager,SearchIndex,Security,View};
 
 final class ContentMigrationController
 {
@@ -14,9 +14,17 @@ final class ContentMigrationController
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             Security::verifyCsrf();
             try {
-                if (($_POST['action'] ?? '') === 'commit') {
+                $action = (string)($_POST['action'] ?? 'preview');
+                if ($action === 'commit') {
                     $message = $this->commit($user, $preview);
                     unset($_SESSION['content_migration_preview']); $preview = null;
+                } elseif ($action === 'media') {
+                    $file = $_FILES['media_archive'] ?? null;
+                    if (!is_array($file) || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file((string)($file['tmp_name'] ?? '')) || !str_ends_with(strtolower((string)$file['name']), '.zip')) throw new \InvalidArgumentException('فقط فایل ZIP بارگذاری‌شده پذیرفته می‌شود.');
+                    $stats = MediaArchiveImporter::import((string)$file['tmp_name'], Database::connection(), (int)$user['id']);
+                    CacheStore::invalidateTag('media');
+                    Audit::log('cms.media_archive_imported','رسانه‌های آرشیوی وارد کتابخانه شد',(int)$user['id'],$stats);
+                    $message = $stats['imported'].' رسانه وارد شد؛ '.$stats['duplicates'].' تکراری و '.$stats['skipped'].' فایل نامعتبر رد شد.';
                 } else {
                     $file = $_FILES['migration_file'] ?? null;
                     if (!is_array($file) || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file((string)($file['tmp_name'] ?? ''))) {
