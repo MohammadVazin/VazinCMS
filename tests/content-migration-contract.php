@@ -19,5 +19,8 @@ $ghostExport = ['db' => [['data' => ['tags' => [['id'=>'t1','name'=>'راهنم�
 $ghost = ContentMigrationService::preview('ghost.json', json_encode($ghostExport, JSON_UNESCAPED_UNICODE));
 $expect($ghost['provider'] === 'ghost-json' && $ghost['items'][0]['source_ref'] === 'ghost:g1', 'Ghost export was not detected.');
 $expect($ghost['items'][0]['terms'][0]['taxonomy'] === 'tag', 'Ghost tag was not retained.');
+$drupalExport = ['data' => [['type'=>'node--article','id'=>'d1','attributes'=>['title'=>'نوشته Drupal','body'=>['value'=>'<p>متن Drupal</p>'],'path'=>['alias'=>'/news/drupal-post'],'field_image'=>['uri'=>['url'=>'https://example.test/media/drupal.png']]]]]];
+$drupal = ContentMigrationService::preview('drupal.json', json_encode($drupalExport, JSON_UNESCAPED_UNICODE));
+$expect($drupal['provider'] === 'drupal-jsonapi' && $drupal['items'][0]['source_path'] === '/news/drupal-post', 'Drupal JSON:API was not detected.');
 try { ContentMigrationService::preview('unsafe.xml', '<!DOCTYPE x [ <!ENTITY t SYSTEM "file:///etc/passwd"> ]><x/>'); throw new RuntimeException('Unsafe XML was accepted.'); } catch (InvalidArgumentException) {}
 echo "content-migration-contract: OK\n";

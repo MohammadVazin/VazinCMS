@@ -33,6 +33,7 @@ final class ContentMigrationService
         try { $payload = json_decode($bytes, true, 64, JSON_THROW_ON_ERROR); }
         catch (\Throwable) { throw new InvalidArgumentException('ساختار JSON معتبر نیست.'); }
         if (is_array($payload['db'][0]['data']['posts'] ?? null)) return self::ghost($payload);
+        if (is_array($payload['data'] ?? null) && isset($payload['data'][0]['attributes'])) return self::drupal($payload);
         if (!is_array($payload) || !is_array($payload['items'] ?? null)) throw new InvalidArgumentException('این JSON خروجی قابل‌حمل VazinCMS یا Ghost نیست.');
         $provider = (string)($payload['provider'] ?? 'vazin-export');
         if (!in_array($provider, ['vazin-export','vazincms'], true)) {
@@ -56,6 +57,24 @@ final class ContentMigrationService
             if (count($items) >= self::MAX_ITEMS) break;
         }
         return ['provider'=>'ghost-json','items'=>self::normalizeItems($items)];
+    }
+
+    /** @return array{provider:string,items:list<array<string,mixed>>} */
+    private static function drupal(array $payload): array
+    {
+        $items = [];
+        foreach ((array)$payload['data'] as $node) {
+            if (!is_array($node) || !str_starts_with((string)($node['type'] ?? ''), 'node--')) continue;
+            $attributes = (array)($node['attributes'] ?? []); $title = (string)($attributes['title'] ?? '');
+            if (trim($title) === '') continue;
+            $body = $attributes['body'] ?? ''; if (is_array($body)) $body = (string)($body['value'] ?? '');
+            $path = $attributes['path'] ?? []; if (is_array($path)) $path = (string)($path['alias'] ?? '');
+            $image = $attributes['field_image'] ?? ''; if (is_array($image)) $image = (string)($image['uri']['url'] ?? $image['url'] ?? '');
+            $slug = trim(basename((string)$path), '/');
+            $items[] = ['source_ref'=>'drupal:'.(string)($node['id'] ?? count($items)),'title'=>$title,'slug'=>$slug,'body'=>$body,'content_type'=>'post','locale'=>'fa','source_path'=>$path,'terms'=>[],'featured_source'=>$image];
+            if (count($items) >= self::MAX_ITEMS) break;
+        }
+        return ['provider'=>'drupal-jsonapi','items'=>self::normalizeItems($items)];
     }
 
     /** @return array{provider:string,items:list<array<string,mixed>>} */
