@@ -13,7 +13,7 @@ final class ContentMigrationService
     public const MAX_ITEMS = 500;
     private const LOCALES = ['fa','ar','en','ru','tr','hy','kk','tg','zh'];
 
-    /** @return array{provider:string,items:list<array<string,string>>} */
+    /** @return array{provider:string,items:list<array<string,mixed>>} */
     public static function preview(string $filename, string $bytes): array
     {
         if ($bytes === '' || strlen($bytes) > self::MAX_BYTES) {
@@ -27,7 +27,7 @@ final class ContentMigrationService
         };
     }
 
-    /** @return array{provider:string,items:list<array<string,string>>} */
+    /** @return array{provider:string,items:list<array<string,mixed>>} */
     private static function fromJson(string $bytes): array
     {
         try { $payload = json_decode($bytes, true, 64, JSON_THROW_ON_ERROR); }
@@ -42,7 +42,7 @@ final class ContentMigrationService
         return ['provider' => 'vazin-export', 'items' => self::normalizeItems($payload['items'])];
     }
 
-    /** @return array{provider:string,items:list<array<string,string>>} */
+    /** @return array{provider:string,items:list<array<string,mixed>>} */
     private static function fromXml(string $bytes): array
     {
         if (preg_match('/<!DOCTYPE|<!ENTITY/i', $bytes)) {
@@ -59,7 +59,7 @@ final class ContentMigrationService
         throw new InvalidArgumentException('نوع XML شناخته نشد. برای جوملا از خروجی J2XML استفاده کنید.');
     }
 
-    /** @return list<array<string,string>> */
+    /** @return list<array<string,mixed>> */
     private static function wordpress(SimpleXMLElement $xml): array
     {
         $wp = 'http://wordpress.org/export/1.2/';
@@ -69,6 +69,14 @@ final class ContentMigrationService
             $w = $node->children($wp); $c = $node->children($content);
             $kind = (string)$w->post_type;
             if (!in_array($kind, ['post','page'], true)) continue;
+            $terms = [];
+            foreach ($node->category as $category) {
+                $domain = (string)($category['domain'] ?? 'category');
+                $name = self::plain((string)$category, 255);
+                $slug = self::slug((string)($category['nicename'] ?? ''), $domain . ':' . $name);
+                if ($name !== '') $terms[] = ['taxonomy' => $domain === 'post_tag' ? 'tag' : 'category', 'name' => $name, 'slug' => $slug];
+            }
+            $path = parse_url((string)$node->link, PHP_URL_PATH);
             $items[] = [
                 'source_ref' => 'wp:' . trim((string)$w->post_id),
                 'title' => (string)$node->title,
@@ -76,13 +84,15 @@ final class ContentMigrationService
                 'body' => (string)$c->encoded,
                 'content_type' => $kind,
                 'locale' => 'fa',
+                'source_path' => is_string($path) ? $path : '',
+                'terms' => $terms,
             ];
             if (count($items) >= self::MAX_ITEMS) break;
         }
         return self::normalizeItems($items);
     }
 
-    /** @return list<array<string,string>> */
+    /** @return list<array<string,mixed>> */
     private static function joomla(SimpleXMLElement $xml): array
     {
         $nodes = isset($xml->content) ? $xml->content->children() : $xml->children();
@@ -103,7 +113,7 @@ final class ContentMigrationService
         return self::normalizeItems($items);
     }
 
-    /** @param list<array<string,mixed>> $items @return list<array<string,string>> */
+    /** @param list<array<string,mixed>> $items @return list<array<string,mixed>> */
     private static function normalizeItems(array $items): array
     {
         $out = []; $seen = [];
@@ -123,6 +133,8 @@ final class ContentMigrationService
                 'body' => self::plain((string)($item['body'] ?? ''), 100_000),
                 'content_type' => (string)($item['content_type'] ?? '') === 'page' ? 'page' : 'post',
                 'locale' => $locale,
+                'source_path' => self::sourcePath((string)($item['source_path'] ?? '')),
+                'terms' => self::terms($item['terms'] ?? []),
             ];
         }
         if ($out === []) throw new InvalidArgumentException('محتوای قابل انتقالی در فایل پیدا نشد.');
@@ -144,6 +156,30 @@ final class ContentMigrationService
         $candidate = trim($candidate, '-');
         if (!preg_match('/^[a-z0-9]/', $candidate)) $candidate = 'import-' . substr(hash('sha256', $ref), 0, 12);
         return substr($candidate, 0, 189);
+    }
+
+    private static function sourcePath(string $path): string
+    {
+        $path = trim($path);
+        return preg_match('#^/[A-Za-z0-9/_\-.]{1,498}$#', $path) ? $path : '';
+    }
+
+    /** @return list<array{taxonomy:string,name:string,slug:string}> */
+    private static function terms(mixed $terms): array
+    {
+        if (!is_array($terms)) return [];
+        $out = []; $seen = [];
+        foreach ($terms as $term) {
+            if (!is_array($term) || count($out) >= 50) continue;
+            $taxonomy = (string)($term['taxonomy'] ?? '') === 'tag' ? 'tag' : 'category';
+            $name = self::plain((string)($term['name'] ?? ''), 255);
+            if ($name === '') continue;
+            $slug = self::slug((string)($term['slug'] ?? ''), $taxonomy . ':' . $name);
+            $key = $taxonomy . ':' . $slug;
+            if (isset($seen[$key])) continue;
+            $seen[$key] = true; $out[] = compact('taxonomy','name','slug');
+        }
+        return $out;
     }
 
     private static function length(string $value): int
