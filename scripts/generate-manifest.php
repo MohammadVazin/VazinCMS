@@ -65,6 +65,12 @@ function isExcludedReleasePath(string $relative): bool
     if ($relative === 'MANIFEST.sha256') {
         return true;
     }
+    // Git metadata changes with every clone and must never be part of a
+    // portable release manifest. The tracked .github directory remains in
+    // scope so the public source retains its CI workflow.
+    if ($relative === '.git' || str_starts_with($relative, '.git/')) {
+        return true;
+    }
     if ($relative === '.env' || (str_starts_with($relative, '.env.') && $relative !== '.env.example')) {
         return true;
     }
