@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "key": "content-migration",
+  "type": "module",
+  "name": "انتقال محتوا",
+  "version": "1.0.0",
+  "description": "پیش‌نمایش و انتقال امن محتوای WordPress، Joomla و VazinCMS به پیش‌نویس‌ها.",
+  "author": "Vazin Online",
+  "requires": {"php": ">=8.2.0", "vazincms": ">=10.29.0", "extensions": {}},
+  "admin_navigation": [{"label": "انتقال محتوا", "path": "/admin/content-migration", "order": 24}],
+  "bootstrap": "bootstrap.php",
+  "default_status": "active",
+  "protected": true
+}

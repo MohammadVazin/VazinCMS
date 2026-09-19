@@ -39,11 +39,12 @@ try {
 
     ExtensionManager::reset();
     $extensions = ExtensionManager::all();
-    $check(count($extensions) === 8, 'bundled extension discovery failed');
-    $check(count(ExtensionManager::activeModules()) === 7, 'bundled modules are not active');
+    $check(count($extensions) === 9, 'bundled extension discovery failed');
+    $check(count(ExtensionManager::activeModules()) === 8, 'bundled modules are not active');
     $check(ExtensionManager::isActive('theme', 'vazin-default'), 'bundled theme is not active');
     $navigation=ExtensionManager::adminNavigation();
-    $check(count($navigation) === 12, 'module-owned admin navigation failed');
+    $check(count($navigation) === 13, 'module-owned admin navigation failed');
+    $check(in_array('/admin/content-migration',array_column($navigation,'path'),true),'Content migration navigation missing');
     $check(in_array('/admin/telegram/assistant',array_column($navigation,'path'),true),'Telegram assistant navigation missing');
     $check(in_array('/admin/travel-alerts',array_column($navigation,'path'),true),'Travel/Visa Telegram alert navigation missing');
     $check(in_array('/admin/agency-inquiries',array_column($navigation,'path'),true),'Travel agency inbox navigation missing');

@@ -1,0 +1,158 @@
+<?php
+declare(strict_types=1);
+
+namespace VazinCMS;
+
+use InvalidArgumentException;
+use SimpleXMLElement;
+
+/** Parses untrusted CMS exports into a deliberately small, reviewable draft format. */
+final class ContentMigrationService
+{
+    public const MAX_BYTES = 10_485_760;
+    public const MAX_ITEMS = 500;
+    private const LOCALES = ['fa','ar','en','ru','tr','hy','kk','tg','zh'];
+
+    /** @return array{provider:string,items:list<array<string,string>>} */
+    public static function preview(string $filename, string $bytes): array
+    {
+        if ($bytes === '' || strlen($bytes) > self::MAX_BYTES) {
+            throw new InvalidArgumentException('فایل خالی است یا از سقف ۱۰ مگابایت بزرگ‌تر است.');
+        }
+        $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+        return match ($extension) {
+            'json' => self::fromJson($bytes),
+            'xml' => self::fromXml($bytes),
+            default => throw new InvalidArgumentException('فقط فایل XML یا JSON قابل انتقال است.'),
+        };
+    }
+
+    /** @return array{provider:string,items:list<array<string,string>>} */
+    private static function fromJson(string $bytes): array
+    {
+        try { $payload = json_decode($bytes, true, 64, JSON_THROW_ON_ERROR); }
+        catch (\Throwable) { throw new InvalidArgumentException('ساختار JSON معتبر نیست.'); }
+        if (!is_array($payload) || !is_array($payload['items'] ?? null)) {
+            throw new InvalidArgumentException('این JSON خروجی قابل‌حمل VazinCMS نیست.');
+        }
+        $provider = (string)($payload['provider'] ?? 'vazin-export');
+        if (!in_array($provider, ['vazin-export','vazincms'], true)) {
+            throw new InvalidArgumentException('ارائه‌دهندهٔ JSON قابل شناسایی نیست.');
+        }
+        return ['provider' => 'vazin-export', 'items' => self::normalizeItems($payload['items'])];
+    }
+
+    /** @return array{provider:string,items:list<array<string,string>>} */
+    private static function fromXml(string $bytes): array
+    {
+        if (preg_match('/<!DOCTYPE|<!ENTITY/i', $bytes)) {
+            throw new InvalidArgumentException('فایل XML دارای تعریف ناامن است و پذیرفته نمی‌شود.');
+        }
+        libxml_use_internal_errors(true);
+        $xml = simplexml_load_string($bytes, SimpleXMLElement::class, LIBXML_NONET | LIBXML_NOCDATA | LIBXML_COMPACT);
+        if (!$xml instanceof SimpleXMLElement) throw new InvalidArgumentException('فایل XML معتبر نیست.');
+        $wp = $xml->channel->item ?? null;
+        if ($wp !== null) return ['provider' => 'wordpress-wxr', 'items' => self::wordpress($xml)];
+        if (strtolower($xml->getName()) === 'j2xml' || isset($xml->content)) {
+            return ['provider' => 'joomla-j2xml', 'items' => self::joomla($xml)];
+        }
+        throw new InvalidArgumentException('نوع XML شناخته نشد. برای جوملا از خروجی J2XML استفاده کنید.');
+    }
+
+    /** @return list<array<string,string>> */
+    private static function wordpress(SimpleXMLElement $xml): array
+    {
+        $wp = 'http://wordpress.org/export/1.2/';
+        $content = 'http://purl.org/rss/1.0/modules/content/';
+        $items = [];
+        foreach ($xml->channel->item as $node) {
+            $w = $node->children($wp); $c = $node->children($content);
+            $kind = (string)$w->post_type;
+            if (!in_array($kind, ['post','page'], true)) continue;
+            $items[] = [
+                'source_ref' => 'wp:' . trim((string)$w->post_id),
+                'title' => (string)$node->title,
+                'slug' => (string)$w->post_name,
+                'body' => (string)$c->encoded,
+                'content_type' => $kind,
+                'locale' => 'fa',
+            ];
+            if (count($items) >= self::MAX_ITEMS) break;
+        }
+        return self::normalizeItems($items);
+    }
+
+    /** @return list<array<string,string>> */
+    private static function joomla(SimpleXMLElement $xml): array
+    {
+        $nodes = isset($xml->content) ? $xml->content->children() : $xml->children();
+        $items = [];
+        foreach ($nodes as $node) {
+            $title = (string)($node->title ?? '');
+            if (trim($title) === '') continue;
+            $items[] = [
+                'source_ref' => 'joomla:' . trim((string)($node->id ?? $node->alias ?? count($items))),
+                'title' => $title,
+                'slug' => (string)($node->alias ?? ''),
+                'body' => (string)($node->fulltext ?? $node->introtext ?? ''),
+                'content_type' => 'post',
+                'locale' => 'fa',
+            ];
+            if (count($items) >= self::MAX_ITEMS) break;
+        }
+        return self::normalizeItems($items);
+    }
+
+    /** @param list<array<string,mixed>> $items @return list<array<string,string>> */
+    private static function normalizeItems(array $items): array
+    {
+        $out = []; $seen = [];
+        foreach ($items as $index => $item) {
+            if (!is_array($item) || count($out) >= self::MAX_ITEMS) break;
+            $title = self::plain((string)($item['title'] ?? ''), 255);
+            if (self::length($title) < 2) continue;
+            $ref = self::plain((string)($item['source_ref'] ?? ('item:' . $index)), 120);
+            if ($ref === '' || isset($seen[$ref])) $ref = 'item:' . $index;
+            $seen[$ref] = true;
+            $locale = strtolower(trim((string)($item['locale'] ?? 'fa')));
+            if (!in_array($locale, self::LOCALES, true)) $locale = 'fa';
+            $out[] = [
+                'source_ref' => $ref,
+                'title' => $title,
+                'slug' => self::slug((string)($item['slug'] ?? ''), $ref),
+                'body' => self::plain((string)($item['body'] ?? ''), 100_000),
+                'content_type' => (string)($item['content_type'] ?? '') === 'page' ? 'page' : 'post',
+                'locale' => $locale,
+            ];
+        }
+        if ($out === []) throw new InvalidArgumentException('محتوای قابل انتقالی در فایل پیدا نشد.');
+        return $out;
+    }
+
+    private static function plain(string $value, int $limit): string
+    {
+        $value = preg_replace('/<\s*(script|style|iframe|object|embed|form)\b[^>]*>.*?<\s*\/\s*\1\s*>/is', '', $value) ?? '';
+        $value = html_entity_decode(strip_tags($value), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $value = trim(preg_replace('/\s+/u', ' ', $value) ?? '');
+        return self::cut($value, $limit);
+    }
+
+    private static function slug(string $candidate, string $ref): string
+    {
+        $candidate = strtolower(trim($candidate));
+        $candidate = preg_replace('/[^a-z0-9]+/', '-', $candidate) ?? '';
+        $candidate = trim($candidate, '-');
+        if (!preg_match('/^[a-z0-9]/', $candidate)) $candidate = 'import-' . substr(hash('sha256', $ref), 0, 12);
+        return substr($candidate, 0, 189);
+    }
+
+    private static function length(string $value): int
+    {
+        return function_exists('mb_strlen') ? mb_strlen($value) : strlen($value);
+    }
+
+    private static function cut(string $value, int $limit): string
+    {
+        return function_exists('mb_substr') ? mb_substr($value, 0, $limit) : substr($value, 0, $limit);
+    }
+}

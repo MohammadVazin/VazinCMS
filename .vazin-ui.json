@@ -6,6 +6,7 @@
   "direction": "rtl",
   "entrypoints": [
     "public/qa/ui/travel-platform-fa.html",
+    "public/qa/ui/content-migration-fa.html",
     "public/qa/ui/visa-platform-fa.html"
   ],
   "stylesheets": [
