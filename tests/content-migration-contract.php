@@ -22,5 +22,10 @@ $expect($ghost['items'][0]['terms'][0]['taxonomy'] === 'tag', 'Ghost tag was not
 $drupalExport = ['data' => [['type'=>'node--article','id'=>'d1','attributes'=>['title'=>'نوشته Drupal','body'=>['value'=>'<p>متن Drupal</p>'],'path'=>['alias'=>'/news/drupal-post'],'field_image'=>['uri'=>['url'=>'https://example.test/media/drupal.png']]]]]];
 $drupal = ContentMigrationService::preview('drupal.json', json_encode($drupalExport, JSON_UNESCAPED_UNICODE));
 $expect($drupal['provider'] === 'drupal-jsonapi' && $drupal['items'][0]['source_path'] === '/news/drupal-post', 'Drupal JSON:API was not detected.');
+$bloggerAtom = '<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom"><entry><id>tag:blogger.com,1999:blog-1.post-2</id><title>نوشته Blogger</title><link rel="alternate" href="https://example.test/2026/09/blogger-post.html"/><category term="راهنما"/><content type="html"><![CDATA[<p>متن Blogger</p><img src="https://example.test/media/blogger.png">]]></content></entry></feed>';
+$blogger = ContentMigrationService::preview('blogger.xml', $bloggerAtom);
+$expect($blogger['provider'] === 'blogger-atom' && $blogger['items'][0]['source_path'] === '/2026/09/blogger-post.html', 'Blogger Atom was not detected.');
+$expect($blogger['items'][0]['terms'][0]['taxonomy'] === 'tag', 'Blogger labels were not retained.');
+$expect($blogger['items'][0]['featured_source'] === 'https://example.test/media/blogger.png', 'Blogger featured media was not retained.');
 try { ContentMigrationService::preview('unsafe.xml', '<!DOCTYPE x [ <!ENTITY t SYSTEM "file:///etc/passwd"> ]><x/>'); throw new RuntimeException('Unsafe XML was accepted.'); } catch (InvalidArgumentException) {}
 echo "content-migration-contract: OK\n";

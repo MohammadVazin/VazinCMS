@@ -11,7 +11,7 @@ $items = is_array($preview['items'] ?? null) ? $preview['items'] : [];
   <form method="post" enctype="multipart/form-data" class="stack">
     <input type="hidden" name="_csrf" value="<?=Security::e(Security::csrf())?>">
     <label>فایل خروجی <input type="file" name="migration_file" accept=".xml,.json,application/xml,application/json,text/xml" required></label>
-    <p class="muted">پشتیبانی‌شده: WordPress WXR، Joomla J2XML، Ghost JSON، Drupal JSON:API و خروجی JSON قابل‌حمل VazinCMS. حداکثر حجم: ۱۰ مگابایت.</p>
+    <p class="muted">پشتیبانی‌شده: WordPress WXR، Blogger Atom، Joomla J2XML، Ghost JSON، Drupal JSON:API و خروجی JSON قابل‌حمل VazinCMS. حداکثر حجم: ۱۰ مگابایت.</p>
     <button type="submit">بررسی فایل</button>
   </form>
 </section>

@@ -34,7 +34,7 @@ final class ContentMigrationService
         catch (\Throwable) { throw new InvalidArgumentException('ساختار JSON معتبر نیست.'); }
         if (is_array($payload['db'][0]['data']['posts'] ?? null)) return self::ghost($payload);
         if (is_array($payload['data'] ?? null) && isset($payload['data'][0]['attributes'])) return self::drupal($payload);
-        if (!is_array($payload) || !is_array($payload['items'] ?? null)) throw new InvalidArgumentException('این JSON خروجی قابل‌حمل VazinCMS یا Ghost نیست.');
+        if (!is_array($payload) || !is_array($payload['items'] ?? null)) throw new InvalidArgumentException('این JSON خروجی قابل‌حمل VazinCMS، Ghost یا Drupal نیست.');
         $provider = (string)($payload['provider'] ?? 'vazin-export');
         if (!in_array($provider, ['vazin-export','vazincms'], true)) {
             throw new InvalidArgumentException('ارائه‌دهندهٔ JSON قابل شناسایی نیست.');
@@ -88,10 +88,13 @@ final class ContentMigrationService
         if (!$xml instanceof SimpleXMLElement) throw new InvalidArgumentException('فایل XML معتبر نیست.');
         $wp = $xml->channel->item ?? null;
         if ($wp !== null) return ['provider' => 'wordpress-wxr', 'items' => self::wordpress($xml)];
+        if (strtolower($xml->getName()) === 'feed' && isset($xml->entry)) {
+            return ['provider' => 'blogger-atom', 'items' => self::blogger($xml)];
+        }
         if (strtolower($xml->getName()) === 'j2xml' || isset($xml->content)) {
             return ['provider' => 'joomla-j2xml', 'items' => self::joomla($xml)];
         }
-        throw new InvalidArgumentException('نوع XML شناخته نشد. برای جوملا از خروجی J2XML استفاده کنید.');
+        throw new InvalidArgumentException('نوع XML شناخته نشد. از خروجی WordPress، Blogger Atom یا Joomla J2XML استفاده کنید.');
     }
 
     /** @return list<array<string,mixed>> */
@@ -145,6 +148,46 @@ final class ContentMigrationService
                 'body' => (string)($node->fulltext ?? $node->introtext ?? ''),
                 'content_type' => 'post',
                 'locale' => 'fa',
+            ];
+            if (count($items) >= self::MAX_ITEMS) break;
+        }
+        return self::normalizeItems($items);
+    }
+
+    /** @return list<array<string,mixed>> */
+    private static function blogger(SimpleXMLElement $xml): array
+    {
+        $items = [];
+        foreach ($xml->entry as $entry) {
+            $title = trim((string)($entry->title ?? ''));
+            if ($title === '') continue;
+            $content = (string)($entry->content ?? $entry->summary ?? '');
+            $path = '';
+            foreach ($entry->link as $link) {
+                $attributes = $link->attributes();
+                if ((string)($attributes['rel'] ?? '') !== 'alternate') continue;
+                $candidate = parse_url((string)($attributes['href'] ?? ''), PHP_URL_PATH);
+                if (is_string($candidate)) { $path = $candidate; break; }
+            }
+            $terms = [];
+            foreach ($entry->category as $category) {
+                $attributes = $category->attributes();
+                $name = self::plain((string)($attributes['term'] ?? ''), 255);
+                if ($name !== '') $terms[] = ['taxonomy'=>'tag','name'=>$name,'slug'=>''];
+            }
+            $featured = '';
+            if (preg_match('/<img\\b[^>]*\\bsrc\\s*=\\s*["\']([^"\']+)["\']/i', $content, $match)) $featured = (string)$match[1];
+            $ref = trim((string)($entry->id ?? ''));
+            $items[] = [
+                'source_ref' => 'blogger:' . ($ref !== '' ? $ref : count($items)),
+                'title' => $title,
+                'slug' => trim(basename($path), '/'),
+                'body' => $content,
+                'content_type' => 'post',
+                'locale' => 'fa',
+                'source_path' => $path,
+                'terms' => $terms,
+                'featured_source' => $featured,
             ];
             if (count($items) >= self::MAX_ITEMS) break;
         }
