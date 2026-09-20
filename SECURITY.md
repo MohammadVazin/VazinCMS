@@ -8,7 +8,7 @@ Do not include passwords, API keys, tokens, personal data, or production databas
 
 ## Supported version
 
-The current supported stable release is 10.30.0. Security fixes are published through the official release channel and announced to managed installations. Verify the release manifest before upgrading.
+The current supported stable release is 10.30.1. Security fixes are published through the official release channel and announced to managed installations. Verify the release manifest before upgrading.
 
 ## Scope and response
 
