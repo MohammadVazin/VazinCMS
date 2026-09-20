@@ -5,8 +5,8 @@ umask 077
 
 [[ $EUID -eq 0 ]] || { echo 'Run as root.' >&2; exit 1; }
 SOURCE="$(cd "$(dirname "$0")/.." && pwd -P)"
-NEW_VERSION='10.29.0'
-OLD_VERSION='10.28.0'
+NEW_VERSION='10.30.0'
+OLD_VERSION='10.29.0'
 STATE_BASE='/var/lib/vazincms-deploy'
 RUNTIME_BASE='/var/lib/vazincms-runtime'
 BACKUP_BASE='/var/backups/vazincms'

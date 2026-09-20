@@ -1,3 +1,12 @@
+# VazinCMS 10.30.0
+
+## فاز ۱۶ — اتصال Sandbox عمومی Travel/Visa
+
+- اتصال ماژول عمومی Travel/Visa به Public Project رسمی VazinPay روی `api.pay.vazin.online` تکمیل شد.
+- callback آزمایشی می‌تواند با allow-list و امضای معتبر فعال باشد، درحالی‌که فروش تجاری با `TRAVEL_VISA_COMMERCIAL_ENABLED=false` بسته می‌ماند.
+- قرارداد امضای webhook با مشتق SHA-256 secret رسمی VazinPay همسان شد و تست‌های create/readback/webhook به release gate افزوده شدند.
+- هیچ فروش واقعی، PII production یا پردازش واقعی در این انتشار فعال نمی‌شود.
+
 # VazinCMS 10.10.10
 
 ## یکپارچه‌سازی معرفی عمومی Vazin Travel

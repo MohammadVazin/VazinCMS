@@ -56,7 +56,9 @@ final class VazinPayGatewayClient
         $secret = $this->webhookSecret !== '' ? $this->webhookSecret : (string)getenv('VAZINPAY_WEBHOOK_SECRET');
         if (!in_array($event, ['invoice.paid','refund'], true) || $delivery === '' || preg_match('/^\d{10}$/', $timestamp) !== 1 || $secret === '') throw new RuntimeException('وب‌هوک VazinPay معتبر نیست.');
         $now = $now ?: time(); if (abs($now - (int)$timestamp) > 300) throw new RuntimeException('زمان وب‌هوک VazinPay معتبر نیست.');
-        $expected = 'v1=' . hash_hmac('sha256', $timestamp . '.' . $rawBody, $secret);
+        // VazinPay derives the signing key as the lowercase hex SHA-256 of the one-time webhook secret.
+        $signingKey = hash('sha256', $secret);
+        $expected = 'v1=' . hash_hmac('sha256', $timestamp . '.' . $rawBody, $signingKey);
         if (!hash_equals($expected, $signature)) throw new RuntimeException('امضای وب‌هوک VazinPay معتبر نیست.');
         try { $payload = json_decode($rawBody, true, 64, JSON_THROW_ON_ERROR); } catch (\Throwable) { throw new RuntimeException('بدنهٔ وب‌هوک JSON معتبر نیست.'); }
         if (!is_array($payload)) throw new RuntimeException('بدنهٔ وب‌هوک معتبر نیست.');
@@ -69,7 +71,7 @@ final class VazinPayGatewayClient
         $base = $this->baseUrl !== '' ? $this->baseUrl : (string)getenv('VAZINPAY_GATEWAY_URL');
         $key = $this->apiKey !== '' ? $this->apiKey : (string)getenv('VAZINPAY_API_KEY');
         $parts = parse_url($base);
-        if (!is_array($parts) || ($parts['scheme'] ?? '') !== 'https' || strtolower((string)($parts['host'] ?? '')) !== 'pay.vazin.online' || isset($parts['user']) || isset($parts['pass']) || isset($parts['port']) || isset($parts['query']) || isset($parts['fragment']) || !in_array((string)($parts['path'] ?? ''), ['', '/'], true) || $key === '') throw new RuntimeException('اتصال امن VazinPay تنظیم نشده است.');
+        if (!is_array($parts) || ($parts['scheme'] ?? '') !== 'https' || strtolower((string)($parts['host'] ?? '')) !== 'api.pay.vazin.online' || isset($parts['user']) || isset($parts['pass']) || isset($parts['port']) || isset($parts['query']) || isset($parts['fragment']) || !in_array((string)($parts['path'] ?? ''), ['', '/'], true) || $key === '') throw new RuntimeException('اتصال امن VazinPay تنظیم نشده است.');
         $headers = ['Authorization'=>'Bearer '.$key, 'Accept'=>'application/json'] + $extraHeaders;
         $result = $this->transport ? ($this->transport)($method, $path, $body, $headers) : $this->curl(rtrim($base,'/').$path, $method, $body, $headers);
         if (!in_array($result['status'], $accepted, true)) throw new RuntimeException('VazinPay پاسخ موفق نداد: HTTP '.$result['status']);
