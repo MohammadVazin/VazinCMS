@@ -1,0 +1,1 @@
+-- 10.30.1 is a webhook-contract correction; no schema change is required.
