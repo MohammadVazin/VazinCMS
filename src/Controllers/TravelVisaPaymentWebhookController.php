@@ -12,7 +12,7 @@ final class TravelVisaPaymentWebhookController
     public function handle(string $tenant): never
     {
         $gate=TravelVisaActivationGate::status($tenant);
-        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST' || !$this->tenantAllowed($tenant) || !$gate['ready']) $this->respond(404);
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST' || !$this->tenantAllowed($tenant) || !$gate['webhook_ready']) $this->respond(404);
         $raw = file_get_contents('php://input', false, null, 0, 65_537);
         if (!is_string($raw) || strlen($raw) > 65_536) $this->respond(413);
         try {

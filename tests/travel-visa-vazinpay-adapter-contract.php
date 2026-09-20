@@ -12,7 +12,7 @@ $pdo->exec((string)file_get_contents(dirname(__DIR__).'/database/migrations/10.3
 $state=['status'=>'pending','calls'=>[]];
 $transport=static function(string $method,string $path,?array $body,array $headers)use(&$state):array{$state['calls'][]=compact('method','path','body','headers');if($method==='POST')return ['status'=>201,'body'=>['invoice_id'=>'inv_travel_123456','external_order_id'=>$body['external_order_id'],'status'=>'pending']];return ['status'=>200,'body'=>['invoice_id'=>'inv_travel_123456','external_order_id'=>'travelvisa:TVORDER0001','amount'=>'99.00','currency'=>'USD','status'=>$state['status']]];};
 $orders=new TravelVisaCommerceService($pdo);$orders->create('russiafa','TVORDER0001','evisa',null,'99.00','USD');
-$adapter=new TravelVisaVazinPayAdapter($orders,new VazinPayGatewayClient('https://pay.vazin.online','contract-key','contract-webhook',$transport));
+$adapter=new TravelVisaVazinPayAdapter($orders,new VazinPayGatewayClient('https://api.pay.vazin.online','contract-key','contract-webhook',$transport));
 $bound=$adapter->createInvoice('russiafa','TVORDER0001','https://russiafa.ru/services/russia-visa/evisa/?order=TVORDER0001','RussiaFa eVisa service','invoice-bind-0001');
 $expect($bound['invoice_id']==='inv_travel_123456'&&$state['calls'][0]['body']['external_order_id']==='travelvisa:TVORDER0001','Invoice was not bound to the correct external order.');
 try{$adapter->createInvoice('other-tenant','TVORDER0001','https://example.test/return','x','invoice-bind-0002');throw new RuntimeException('Cross-tenant order access was accepted.');}catch(RuntimeException $e){$expect($e->getMessage()==='order_not_found','Unexpected tenant-boundary failure.');}

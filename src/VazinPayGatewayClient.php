@@ -69,7 +69,7 @@ final class VazinPayGatewayClient
         $base = $this->baseUrl !== '' ? $this->baseUrl : (string)getenv('VAZINPAY_GATEWAY_URL');
         $key = $this->apiKey !== '' ? $this->apiKey : (string)getenv('VAZINPAY_API_KEY');
         $parts = parse_url($base);
-        if (!is_array($parts) || ($parts['scheme'] ?? '') !== 'https' || strtolower((string)($parts['host'] ?? '')) !== 'pay.vazin.online' || isset($parts['user']) || isset($parts['pass']) || isset($parts['port']) || isset($parts['query']) || isset($parts['fragment']) || !in_array((string)($parts['path'] ?? ''), ['', '/'], true) || $key === '') throw new RuntimeException('اتصال امن VazinPay تنظیم نشده است.');
+        if (!is_array($parts) || ($parts['scheme'] ?? '') !== 'https' || strtolower((string)($parts['host'] ?? '')) !== 'api.pay.vazin.online' || isset($parts['user']) || isset($parts['pass']) || isset($parts['port']) || isset($parts['query']) || isset($parts['fragment']) || !in_array((string)($parts['path'] ?? ''), ['', '/'], true) || $key === '') throw new RuntimeException('اتصال امن VazinPay تنظیم نشده است.');
         $headers = ['Authorization'=>'Bearer '.$key, 'Accept'=>'application/json'] + $extraHeaders;
         $result = $this->transport ? ($this->transport)($method, $path, $body, $headers) : $this->curl(rtrim($base,'/').$path, $method, $body, $headers);
         if (!in_array($result['status'], $accepted, true)) throw new RuntimeException('VazinPay پاسخ موفق نداد: HTTP '.$result['status']);
