@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 namespace VazinCMS;
-use VazinCMS\Controllers\{AccountController,AuthController,ContentController,DeveloperApiController,ExtensionController,InstallController,TravelVisaAdminController};
+use VazinCMS\Controllers\{AccountController,AuthController,ContentController,DeveloperApiController,ExtensionController,InstallController,TravelVisaAdminController,TravelVisaPaymentWebhookController};
 use Throwable;
 final class App{
  public function run():void{
@@ -34,6 +34,7 @@ final class App{
   if($path==='/api/v3/learn/courses'){(new DeveloperApiController())->courses();return true;}
   if($path==='/api/v3/connectors'){(new DeveloperApiController())->connectors();return true;}
   if($path==='/api/v3/travel-visa/orders'){(new TravelVisaAdminController())->api();return true;}
+  if(preg_match('#^/webhooks/v1/travel-visa/([a-z0-9][a-z0-9-]{1,62})$#',$path,$match)===1){(new TravelVisaPaymentWebhookController())->handle($match[1]);return true;}
   if($path==='/api/v3/openapi.json'){header('Content-Type: application/json; charset=utf-8');readfile(dirname(__DIR__).'/public/openapi-v3.json');return true;}
 
   if($path==='/admin'||$path==='/admin/pages'){(new ContentController())->pages();return true;}
