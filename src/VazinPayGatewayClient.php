@@ -56,7 +56,10 @@ final class VazinPayGatewayClient
         $secret = $this->webhookSecret !== '' ? $this->webhookSecret : (string)getenv('VAZINPAY_WEBHOOK_SECRET');
         if (!in_array($event, ['invoice.paid','refund'], true) || $delivery === '' || preg_match('/^\d{10}$/', $timestamp) !== 1 || $secret === '') throw new RuntimeException('وب‌هوک VazinPay معتبر نیست.');
         $now = $now ?: time(); if (abs($now - (int)$timestamp) > 300) throw new RuntimeException('زمان وب‌هوک VazinPay معتبر نیست.');
-        $expected = 'v1=' . hash_hmac('sha256', $timestamp . '.' . $rawBody, $secret);
+        // VazinPay retains a SHA-256 digest for the webhook secret and signs
+        // deliveries with that digest.  Derive the same key before comparing.
+        $signingKey = hash('sha256', $secret);
+        $expected = 'v1=' . hash_hmac('sha256', $timestamp . '.' . $rawBody, $signingKey);
         if (!hash_equals($expected, $signature)) throw new RuntimeException('امضای وب‌هوک VazinPay معتبر نیست.');
         try { $payload = json_decode($rawBody, true, 64, JSON_THROW_ON_ERROR); } catch (\Throwable) { throw new RuntimeException('بدنهٔ وب‌هوک JSON معتبر نیست.'); }
         if (!is_array($payload)) throw new RuntimeException('بدنهٔ وب‌هوک معتبر نیست.');
