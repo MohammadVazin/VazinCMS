@@ -18,20 +18,20 @@ sort($expectedKeys);
 $actualKeys = array_keys($manifest);
 sort($actualKeys);
 $check($actualKeys === $expectedKeys, 'Upgrade manifest keys are not exact.');
-$check(($manifest['version'] ?? null) === '10.30.0', 'Manifest version must be 10.30.0.');
+$check(($manifest['version'] ?? null) === '10.30.1', 'Manifest version must be 10.30.1.');
 $check(($manifest['entrypoint'] ?? null) === 'deploy/install.sh', 'Upgrade entrypoint is not selected.');
 $check(($manifest['upgrade_only'] ?? null) === true, 'Release must be upgrade-only.');
 $check(($manifest['managed_site_upgrade_contract'] ?? null) === 'external-runtime-v1', 'External runtime contract is missing.');
 $check(($manifest['minimum_vazin_online'] ?? null) === '16.8.27', 'Upgrade requires VazinOnline 16.8.27.');
-$check(($manifest['minimum_current_version'] ?? null) === '10.29.0', 'Upgrade predecessor must be exact.');
-$check(($manifest['supported_current_versions'] ?? null) === ['10.29.0'], 'Supported predecessor list must be exact.');
+$check(($manifest['minimum_current_version'] ?? null) === '10.30.0', 'Upgrade predecessor must be exact.');
+$check(($manifest['supported_current_versions'] ?? null) === ['10.30.0'], 'Supported predecessor list must be exact.');
 $check(!array_key_exists('bootstrap_only', $manifest), 'Bootstrap flag must be absent from an upgrade package.');
 $check(!array_key_exists('managed_site_bootstrap_contract', $manifest), 'Bootstrap contract must be absent from an upgrade package.');
 
 $installer = (string) file_get_contents($root . '/deploy/install.sh');
 foreach ([
-    "NEW_VERSION='10.30.0'",
-    "OLD_VERSION='10.29.0'",
+    "NEW_VERSION='10.30.1'",
+    "OLD_VERSION='10.30.0'",
     'printenv INSTALL_DIR',
     '--site-root',
     'validate_external_environment',

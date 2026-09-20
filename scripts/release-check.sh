@@ -13,11 +13,11 @@ php "$ROOT/scripts/generate-manifest.php" --check
 import json,sys
 m=json.load(open(sys.argv[1],encoding='utf-8')); version=sys.argv[2]
 assert set(m)=={'schema','product','type','version','minimum_php','entrypoint','upgrade_only','managed_site_upgrade_contract','supports_preview','supports_rollback','compatible_targets','minimum_vazin_online','minimum_current_version','supported_current_versions','release_channel','risk_level','connector_version','requires','release_notes'}
-assert m['schema']==2 and m['product']=='VazinCMS' and m['type']=='vazincms' and m['version']==version=='10.30.0'
+assert m['schema']==2 and m['product']=='VazinCMS' and m['type']=='vazincms' and m['version']==version=='10.30.1'
 assert m['entrypoint']=='deploy/install.sh' and m['minimum_php']=='8.2'
 assert m['upgrade_only'] is True and m['managed_site_upgrade_contract']=='external-runtime-v1'
-assert m['minimum_vazin_online']=='16.8.27' and m['minimum_current_version']=='10.29.0'
-assert m['supported_current_versions']==['10.29.0'] and m['connector_version']=='2.2.0'
+assert m['minimum_vazin_online']=='16.8.27' and m['minimum_current_version']=='10.30.0'
+assert m['supported_current_versions']==['10.30.0'] and m['connector_version']=='2.2.0'
 assert m['release_channel']=='stable' and m['risk_level']=='high' and m['supports_rollback'] is True
 assert m['requires']=={'vazin_id':'5.4.3','vazinpay':'21.4.1'}
 PY
@@ -159,9 +159,9 @@ test -s "$ROOT/CHANGELOG-10.10.8-FA.md"
 test -s "$ROOT/CHANGELOG-10.27.0-FA.md"
 test -s "$ROOT/CHANGELOG-10.28.0-FA.md"
 test -s "$ROOT/CHANGELOG-10.29.0-FA.md"
-test -s "$ROOT/CHANGELOG-10.30.0-FA.md"
-test -s "$ROOT/database/migrations/10.30.0-sqlite.sql"
-test -s "$ROOT/database/migrations/10.30.0-pgsql.sql"
+test -s "$ROOT/CHANGELOG-10.30.1-FA.md"
+test -s "$ROOT/database/migrations/10.30.1-sqlite.sql"
+test -s "$ROOT/database/migrations/10.30.1-pgsql.sql"
 test -s "$ROOT/tests/managed-site-external-upgrade-contract.php"
 test -s "$ROOT/scripts/tenant-demo-preflight.php"
 test -s "$ROOT/docs/tenant-demo.example.json"
@@ -170,8 +170,8 @@ test -s "$ROOT/tests/admin-brand-locale-contract.php"
 test -s "$ROOT/tests/admin-brand-locale-render-contract.php"
 test -s "$ROOT/tests/admin-navigation-contract.php"
 test -s "$ROOT/tests/manual-visa-no-checkout-contract.php"
-grep -Fq "NEW_VERSION='10.30.0'" "$ROOT/deploy/install.sh"
-grep -Fq "OLD_VERSION='10.29.0'" "$ROOT/deploy/install.sh"
+grep -Fq "NEW_VERSION='10.30.1'" "$ROOT/deploy/install.sh"
+grep -Fq "OLD_VERSION='10.30.0'" "$ROOT/deploy/install.sh"
 grep -Fq 'VAZIN_VISA_DIRECT_SALES_ENABLED=false' "$ROOT/.env.example"
 grep -Fq 'ManualVisaCaseController' "$ROOT/extensions/modules/visa/bootstrap.php"
 grep -Fq 'function forOperator' "$ROOT/src/VisaApplicationService.php"
