@@ -9,7 +9,7 @@ $invoice=$pay->createInvoice('russiafa:RFE12345678901234567890','99','USD','Russ
 $expect($invoice['invoice_id']==='inv_123456'&&$calls[0]['body']['amount']==='99.00'&&$calls[0]['body']['currency']==='USD','Invoice contract changed.');
 $refund=$pay->refund('inv_123456','Customer cancelled before processing','refund-key-123');
 $expect($refund['status']==='pending_provider'&&$calls[1]['headers']['Idempotency-Key']==='refund-key-123','Refund idempotency contract changed.');
-$raw='{"invoice_id":"inv_123456"}';$ts='1700000000';$signingKey=hash('sha256','webhook-secret');$headers=['X-VazinPay-Event'=>'invoice.paid','X-VazinPay-Delivery'=>'delivery-1','X-VazinPay-Timestamp'=>$ts,'X-VazinPay-Signature'=>'v1='.hash_hmac('sha256',$ts.'.'.$raw,$signingKey)];
+$raw='{"invoice_id":"inv_123456"}';$ts='1700000000';$headers=['X-VazinPay-Event'=>'invoice.paid','X-VazinPay-Delivery'=>'delivery-1','X-VazinPay-Timestamp'=>$ts,'X-VazinPay-Signature'=>'v1='.hash_hmac('sha256',$ts.'.'.$raw,'webhook-secret')];
 $event=$pay->verifyWebhook($headers,$raw,1700000010);$expect($event['event']==='invoice.paid','Webhook signature contract changed.');
 try{$pay->verifyWebhook($headers,'{}',1700000010);throw new RuntimeException('Invalid webhook accepted.');}catch(RuntimeException){}
 try{(new VazinPayGatewayClient('https://user@api.pay.vazin.online','live-key','webhook-secret',$transport))->invoice('inv_123456');throw new RuntimeException('Credential-bearing gateway URL accepted.');}catch(RuntimeException){}
