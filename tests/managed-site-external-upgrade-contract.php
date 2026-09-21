@@ -18,7 +18,7 @@ sort($expectedKeys);
 $actualKeys = array_keys($manifest);
 sort($actualKeys);
 $check($actualKeys === $expectedKeys, 'Upgrade manifest keys are not exact.');
-$check(($manifest['version'] ?? null) === '10.30.1', 'Manifest version must be 10.30.1.');
+$check(($manifest['version'] ?? null) === '10.30.2', 'Manifest version must be 10.30.2.');
 $check(($manifest['entrypoint'] ?? null) === 'deploy/install.sh', 'Upgrade entrypoint is not selected.');
 $check(($manifest['upgrade_only'] ?? null) === true, 'Release must be upgrade-only.');
 $check(($manifest['managed_site_upgrade_contract'] ?? null) === 'external-runtime-v1', 'External runtime contract is missing.');
@@ -30,8 +30,8 @@ $check(!array_key_exists('managed_site_bootstrap_contract', $manifest), 'Bootstr
 
 $installer = (string) file_get_contents($root . '/deploy/install.sh');
 foreach ([
-    "NEW_VERSION='10.30.1'",
-    "OLD_VERSION='10.30.0'",
+    "NEW_VERSION='10.30.2'",
+    "OLD_VERSION='10.30.1'",
     'printenv INSTALL_DIR',
     '--site-root',
     'validate_external_environment',

@@ -119,7 +119,13 @@ final class UpdateFeedService
             ? "INSERT INTO cms_update_feed_state($fields) VALUES($values) ON CONFLICT(channel) DO UPDATE SET current_version=:current_version2,available_version=:available_version2,status=:status2,feed_url=:feed_url2,release_url=:release_url2,checksum_url=:checksum_url2,signature_url=:signature_url2,public_key_url=:public_key_url2,release_notes_url=:release_notes_url2,minimum_current_version=:minimum_current_version2,error_message=:error_message2,checked_at=CURRENT_TIMESTAMP"
             : "INSERT INTO cms_update_feed_state($fields) VALUES($values) ON CONFLICT(channel) DO UPDATE SET current_version=EXCLUDED.current_version,available_version=EXCLUDED.available_version,status=EXCLUDED.status,feed_url=EXCLUDED.feed_url,release_url=EXCLUDED.release_url,checksum_url=EXCLUDED.checksum_url,signature_url=EXCLUDED.signature_url,public_key_url=EXCLUDED.public_key_url,release_notes_url=EXCLUDED.release_notes_url,minimum_current_version=EXCLUDED.minimum_current_version,error_message=EXCLUDED.error_message,checked_at=CURRENT_TIMESTAMP";
         $params = $row;
-        if ($driver === 'sqlite') foreach ($row as $key => $value) $params[$key . '2'] = $value;
+        if ($driver === 'sqlite') {
+            foreach ($row as $key => $value) {
+                if ($key !== 'channel') {
+                    $params[$key . '2'] = $value;
+                }
+            }
+        }
         $pdo->prepare($sql)->execute($params);
     }
 }

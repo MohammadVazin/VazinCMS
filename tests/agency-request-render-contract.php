@@ -12,6 +12,15 @@ putenv('APP_URL=https://travel.example.test');
 
 require dirname(__DIR__) . '/src/bootstrap.php';
 
+// PHASE16_AGENCY_SCHEMA_BOOTSTRAP
+$pdo = VazinCMS\Database::connection();
+$pdo->exec((string) file_get_contents($root . '/database/schema-sqlite.sql'));
+$pdo->exec((string) file_get_contents($root . '/database/migrations/4.1.0-sqlite.sql'));
+$pdo->exec((string) file_get_contents($root . '/database/migrations/5.0.1-sqlite.sql'));
+$pdo->exec((string) file_get_contents($root . '/database/migrations/10.7.0-sqlite.sql'));
+$pdo->exec((string) file_get_contents($root . '/database/migrations/10.8.0-sqlite.sql'));
+
+
 use VazinCMS\View;
 
 $check = static function (bool $condition, string $message): void {
