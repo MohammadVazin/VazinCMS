@@ -426,3 +426,8 @@ Telegram نیز همچنان کاملاً رضایت‌محور و بدون deli
 - حالت روشن/تاریک، منوی موبایل و طراحی واکنش‌گرا
 - متادیتای Open Graph و داده ساختاریافته Organization
 - حفظ داده‌ها و سازگاری ارتقا از VazinCMS 4.5.0 به بعد
+# 10.30.2 — International default locale
+
+- Set English (`en`) as the default public-site language and left-to-right baseline.
+- Keep Persian, Arabic, Russian and Chinese available as selectable public locales.
+- Preserve locale-specific direction and translated public copy for supported languages.
