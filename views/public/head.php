@@ -17,9 +17,9 @@ if($isTravelPlatform&&($viewName??'')==='travel-platform-home')$meta=array_repla
 $customColor=preg_match('/^#[0-9a-fA-F]{6}$/',(string)($settings['primary_color']??''))
     ?(string)$settings['primary_color']:'';
 $enabled=json_decode((string)($settings['enabled_locales']??'[]'),true);
-if(!is_array($enabled)||!$enabled)$enabled=['fa','ru','en','ar'];
-$enabled=array_values(array_intersect(['fa','ru','en','ar'],$enabled));
-if(!$enabled)$enabled=['fa','ru','en','ar'];
+if(!is_array($enabled)||!$enabled)$enabled=['en','fa','ar','ru','zh'];
+$enabled=array_values(array_intersect(['en','fa','ar','ru','zh'],$enabled));
+if(!$enabled)$enabled=['en','fa','ar','ru','zh'];
 $description=(string)($meta['description']??$settings['site_description.'.$lang]??$settings['site_description']??$copy['text']);
 $robots=(string)($meta['robots']??'index,follow,max-image-preview:large');
 $ogTitle=(string)($meta['og_title']??$meta['title']??$siteName);

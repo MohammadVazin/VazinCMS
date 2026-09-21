@@ -2,12 +2,12 @@
   "schema": "vazin-ui-contract/v1",
   "standard_version": "1.0.0",
   "ui": true,
-  "locale": "fa",
-  "direction": "rtl",
+  "locale": "en",
+  "direction": "ltr",
   "entrypoints": [
-    "public/qa/ui/travel-platform-fa.html",
-    "public/qa/ui/content-migration-fa.html",
-    "public/qa/ui/visa-platform-fa.html"
+    "public/qa/ui/travel-platform-en.html",
+    "public/qa/ui/content-migration-en.html",
+    "public/qa/ui/visa-platform-en.html"
   ],
   "stylesheets": [
     "public/assets/travel-40.css",
