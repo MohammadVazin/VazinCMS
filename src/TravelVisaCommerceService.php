@@ -19,6 +19,46 @@ final class TravelVisaCommerceService
     public function reserveProcessing(string $reference,string $key,string $actor): array { return $this->mutate($reference,'processing.reserved',$key,$actor,function(array $o)use($key):array{if(!TravelVisaCommerceContract::canStartProcessing($o['payment_status'],$o['processing_started_at'],$o['refund_lock']))throw new RuntimeException('processing_not_allowed');return ['processing_lock'=>$key];}); }
     public function startProcessing(string $reference,string $key,string $actor): array { return $this->mutate($reference,'processing.started',$key,$actor,function(array $o)use($key):array{if($o['processing_lock']!==$key||$o['refund_lock']!==null)throw new RuntimeException('processing_lock_conflict');return ['processing_started_at'=>gmdate('c'),'processing_lock'=>null,'lifecycle_status'=>'processing'];}); }
     public function reserveRefund(string $reference,string $key,string $actor): array { return $this->mutate($reference,'refund.reserved',$key,$actor,function(array $o)use($key):array{if(!TravelVisaCommerceContract::canRefund($o['payment_status'],$o['processing_started_at'],$o['processing_lock']))throw new RuntimeException('refund_not_allowed');return ['refund_lock'=>$key];}); }
+    public function completeRefund(string $reference,string $key,string $actor): array {
+        return $this->mutate(
+            $reference,
+            'refund.completed',
+            $key,
+            $actor,
+            function(array $o)use($key):array{
+                if($o['refund_lock']!==$key){
+                    throw new RuntimeException('refund_lock_conflict');
+                }
+                if($o['payment_status']!=='paid'){
+                    throw new RuntimeException('refund_not_allowed');
+                }
+                return [
+                    'payment_status'=>'refunded',
+                    'lifecycle_status'=>'cancelled',
+                    'refund_lock'=>null
+                ];
+            }
+        );
+    }
+
+    public function failRefund(string $reference,string $key,string $actor): array {
+        return $this->mutate(
+            $reference,
+            'refund.failed',
+            $key,
+            $actor,
+            function(array $o)use($key):array{
+                if($o['refund_lock']!==$key){
+                    throw new RuntimeException('refund_lock_conflict');
+                }
+                if($o['payment_status']!=='paid'){
+                    throw new RuntimeException('refund_not_allowed');
+                }
+                return ['refund_lock'=>null];
+            }
+        );
+    }
+
     private function mutate(string $reference,string $event,string $key,string $actor,callable $change): array { if(preg_match('/^[A-Z0-9_-]{10,100}$/',$reference)!==1||preg_match('/^[A-Za-z0-9._:-]{8,190}$/',$key)!==1)throw new RuntimeException('invalid_reference');$this->pdo->beginTransaction();try{$o=$this->get($reference);$existing=$this->pdo->prepare('SELECT 1 FROM travel_visa_events WHERE order_id=:id AND event_type=:event AND idempotency_key=:key');$existing->execute(['id'=>$o['id'],'event'=>$event,'key'=>$key]);if($existing->fetchColumn()){$this->pdo->commit();return $this->get($reference);}$changes=$change($o);$sets=[];$params=['id'=>$o['id']];foreach($changes as $k=>$v){$sets[]=$k.'=:'.$k;$params[$k]=$v;}if($sets){$this->pdo->prepare('UPDATE travel_visa_orders SET '.implode(',',$sets).',updated_at=CURRENT_TIMESTAMP WHERE id=:id')->execute($params);}$this->pdo->prepare('INSERT INTO travel_visa_events(order_id,event_type,actor_ref,idempotency_key,payload_json) VALUES(:id,:event,:actor,:key,:payload)')->execute(['id'=>$o['id'],'event'=>$event,'actor'=>$actor,'key'=>$key,'payload'=>json_encode($changes)]);$this->pdo->commit();return $this->get($reference);}catch(\Throwable $e){if($this->pdo->inTransaction())$this->pdo->rollBack();throw $e;}}
     private function get(string $reference): array {$s=$this->pdo->prepare('SELECT * FROM travel_visa_orders WHERE public_ref=:ref');$s->execute(['ref'=>$reference]);$o=$s->fetch(PDO::FETCH_ASSOC);if(!is_array($o))throw new RuntimeException('order_not_found');return $o;}
 }

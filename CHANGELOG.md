@@ -1,3 +1,12 @@
+# VazinCMS 10.30.2
+
+## نسخه نگهداری و آمادگی تولید
+
+- تکمیل قراردادهای بازپرداخت Travel/Visa و idempotency
+- اصلاح VazinPay و Update Feed
+- افزودن مستندات عمومی و مسیرهای OpenAPI
+- سخت‌سازی نصب، rollback و artifact انتشار
+
 # VazinCMS 10.30.1
 
 ## اصلاح قرارداد Webhook وزین‌پی
