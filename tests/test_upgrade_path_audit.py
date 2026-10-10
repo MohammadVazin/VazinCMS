@@ -47,6 +47,7 @@ def fixture(root: Path, version: str, predecessor: str, *, supported: list[str] 
     }), encoding="utf-8")
     (path / "deploy/install.sh").write_text(
         f"#!/bin/bash\nOLD_VERSION='{predecessor}'\nNEW_VERSION='{version}'\n", encoding="utf-8")
+    (path / "deploy/rollback.sh").write_text("#!/bin/bash\n# synthetic rollback contract\n", encoding="utf-8")
     for migration in migrations:
         for engine in ("sqlite", "pgsql"):
             (path / "database/migrations" / f"{migration}-{engine}.sql").write_text(
@@ -140,6 +141,30 @@ class UpgradeChainContractTests(unittest.TestCase):
         (root / "MANIFEST.sha256").write_text("".join(rows))
         report = self.run_audit()
         self.assertTrue(any("manifest_file_invalid:VERSION:symlink_path" in x for x in report["errors"]))
+
+    def test_missing_rollback_entry_is_rejected(self):
+        manifest_path = self.paths["10.30.1"] / "MANIFEST.sha256"
+        rows = manifest_path.read_text().splitlines(keepends=True)
+        manifest_path.write_text("".join(x for x in rows if not x.endswith("  deploy/rollback.sh\n")))
+        self.assertIn("10.30.1:manifest_missing_required:deploy/rollback.sh", self.run_audit()["errors"])
+
+    def test_unpinned_sql_migration_rejected(self):
+        manifest_path = self.paths["10.30.1"] / "MANIFEST.sha256"
+        rows = manifest_path.read_text().splitlines(keepends=True)
+        manifest_path.write_text("".join(x for x in rows if not x.endswith("  database/migrations/10.30.1-sqlite.sql\n")))
+        self.assertIn("10.30.1:migration_outside_manifest:10.30.1-sqlite.sql", self.run_audit()["errors"])
+
+    def test_symlink_migration_rejected(self):
+        root = self.paths["10.30.1"]
+        original = root / "database/migrations/10.30.1-sqlite.sql"
+        contents = original.read_text()
+        original.unlink()
+        target = root / "database/migrations/10.30.1-stored.sql"
+        target.write_text(contents)
+        original.symlink_to(target)
+        manifest(root)
+        report = self.run_audit()
+        self.assertIn("10.30.1:migration_symlink_or_missing:10.30.1-sqlite.sql", report["errors"])
 
     def test_corrupt_manifest_syntax(self):
         (self.paths["10.30.1"] / "MANIFEST.sha256").write_text("not-a-sha  VERSION\n")

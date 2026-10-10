@@ -77,9 +77,7 @@ def manifest_audit(root: Path) -> tuple[dict[str, str], list[str]]:
                 errors.append("manifest_file_invalid:" + relative + ":" + str(exc))
         if order != sorted(order):
             errors.append("manifest_not_canonical_order")
-        for essential in ("VERSION", "vazin-package.json", "deploy/install.sh", "MANIFEST.sha256"):
-            if essential == "MANIFEST.sha256":
-                continue  # A manifest must never list its own checksum.
+        for essential in ("VERSION", "vazin-package.json", "deploy/install.sh", "deploy/rollback.sh"):
             if essential not in entries:
                 errors.append("manifest_missing_required:" + essential)
         if not entries:
@@ -159,11 +157,16 @@ def release_info(version: str, directory: Path) -> dict[str, Any]:
         errors.append("migration_directory_missing")
     else:
         for f in mdir.iterdir():
-            if not f.is_file() or f.is_symlink():
-                continue
             match = MIGRATION_RE.fullmatch(f.name)
-            if match:
-                migrations[f.name] = file_hash(f)
+            if not match:
+                continue
+            relative = "database/migrations/" + f.name
+            if f.is_symlink() or not f.is_file():
+                errors.append("migration_symlink_or_missing:" + f.name)
+                continue
+            if relative not in entries:
+                errors.append("migration_outside_manifest:" + f.name)
+            migrations[f.name] = file_hash(f)
         sql_versions = {n.split("-", 1)[0] for n in migrations if n.endswith("-sqlite.sql")}
         pg_versions = {n.split("-", 1)[0] for n in migrations if n.endswith("-pgsql.sql")}
         if sql_versions != pg_versions:
