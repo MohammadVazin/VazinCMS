@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Explicit code rollback for the external-runtime VazinCMS 10.28.0 upgrade.
+# UNRELEASED CANDIDATE. Code rollback for the VazinCMS 10.30.3 upgrade bridge.
 set -Eeuo pipefail
 umask 077
 
@@ -38,8 +38,8 @@ case "$SITE_ROOT" in
     ;;
 esac
 
-OLD_VERSION='10.30.1'
-NEW_VERSION='10.30.2'
+OLD_VERSION='10.29.0'
+NEW_VERSION='10.30.3'
 STATE_ROOT="/var/lib/vazincms-deploy/$SITE_KEY"
 HELPER="$STATE_ROOT/atomic-release-$NEW_VERSION.py"
 

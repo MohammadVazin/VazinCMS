@@ -14,14 +14,15 @@ final class UpdateFeedService
     private const OFFICIAL_HOST = 'cms.vazin.online';
     private const CACHE_SECONDS = 21600;
 
-    public static function refresh(PDO $pdo, bool $force = false): array
+    public static function refresh(PDO $pdo, bool $force = false, ?callable $fetch = null): array
     {
         $previous = self::status($pdo);
         if (!$force && isset($previous['checked_at']) && strtotime((string) $previous['checked_at']) >= time() - self::CACHE_SECONDS) {
             return $previous;
         }
         try {
-            $document = self::request(self::FEED_URL);
+            $document = $fetch === null ? self::request(self::FEED_URL) : $fetch(self::FEED_URL);
+            if (!is_string($document)) throw new RuntimeException('Official update feed returned a non-text payload.');
             $release = self::validate(json_decode($document, true, 32, JSON_THROW_ON_ERROR));
             $status = version_compare($release['version'], Version::current(), '>') ? 'update_available' : 'current';
             $row = [
