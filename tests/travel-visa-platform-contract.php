@@ -50,10 +50,12 @@ try {
     $pdo->prepare("INSERT INTO users(name,email,password_hash,role,status) VALUES('Platform Owner','platform-owner@example.test',:hash,'owner','active')")
         ->execute(['hash'=>password_hash('contract-only', PASSWORD_DEFAULT)]);
     $ownerId = (int)$pdo->lastInsertId();
+    $arrivalDate = gmdate('Y-m-d', time() + 21 * 86400);
+    $departureDate = gmdate('Y-m-d', time() + 30 * 86400);
     $pdo->prepare(
         "INSERT INTO travel_orders(public_id,access_hash,locale,service_type,full_name,email,phone,destination,nationality,travelers,travel_date,notes) "
-        . "VALUES('VZPLATFORM01',:access,'fa','visa','Contract Traveller','traveller@example.test','+12025550100','RU','IR',1,'2026-10-04','')"
-    )->execute(['access'=>hash('sha256','CONTRACT')]);
+        . "VALUES('VZPLATFORM01',:access,'fa','visa','Contract Traveller','traveller@example.test','+12025550100','RU','IR',1,:travel_date,'')"
+    )->execute(['access'=>hash('sha256','CONTRACT'), 'travel_date'=>$arrivalDate]);
     $order = $pdo->query("SELECT * FROM travel_orders WHERE public_id='VZPLATFORM01'")->fetch();
     $check(is_array($order), 'Contract order was not created');
 
@@ -62,7 +64,7 @@ try {
         'given_name'=>'Test','family_name'=>'Traveller','birth_date'=>'1990-06-14','gender'=>'female','birth_country'=>'Iran','birth_city'=>'Tehran','nationality'=>'Iran','second_nationality'=>'',
         'passport_number'=>'P12345678','passport_issued_at'=>'2021-01-10','passport_expires_at'=>'2031-09-30','passport_issuing_country'=>'Iran','passport_issuing_authority'=>'Passport Office',
         'residence_country'=>'Russia','residence_city'=>'Moscow','residence_address'=>'Contract Test Address 12','email'=>'traveller@example.test','phone'=>'+12025550100',
-        'destination'=>'Russia','visa_type'=>'tourism','entry_count'=>'single','arrival_date'=>'2026-10-04','departure_date'=>'2026-10-15','accommodation_name'=>'Contract Hotel','accommodation_address'=>'Safe Destination Address 7',
+        'destination'=>'Russia','visa_type'=>'tourism','entry_count'=>'single','arrival_date'=>$arrivalDate,'departure_date'=>$departureDate,'accommodation_name'=>'Contract Hotel','accommodation_address'=>'Safe Destination Address 7',
         'employment_status'=>'employed','employer_name'=>'Contract Company','employer_address'=>'Business Address 2','travel_purpose'=>'Tourism and family visit','previous_visa'=>'no','previous_visa_details'=>'',
         'emergency_contact_name'=>'Emergency Contact','emergency_contact_relation'=>'Sibling','emergency_contact_phone'=>'+12025550101','additional_information'=>'',
         'accuracy_consent'=>'1','privacy_consent'=>'1',
