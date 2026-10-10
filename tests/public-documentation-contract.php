@@ -83,7 +83,7 @@ $check(
 );
 
 $check(
-    str_contains($readme, 'Current release: **10.30.2**'),
+    str_contains($readme, 'Candidate release: **10.30.3**'),
     'README current release missing'
 );
 

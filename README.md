@@ -20,7 +20,7 @@ cp .env.example .env
 ./deploy/install.sh
 ```
 
-Current release: **10.30.2**. The authoritative upgrade compatibility is defined by `vazin-package.json` and the official release package. The administrator panel verifies the official update feed but never downloads or executes remote code; use the release package and rollback procedure documented in the official support portal.
+Candidate release: **10.30.3** (unreleased; no signing or production rollout approved). The official stable release remains **10.30.2**. The authoritative upgrade compatibility is defined by `vazin-package.json` and the official release package. The administrator panel verifies the official update feed but never downloads or executes remote code; use the release package and rollback procedure documented in the official support portal.
 
 ## Extensibility
 

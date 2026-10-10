@@ -49,7 +49,7 @@ if (($result['status'] ?? '') !== 'current') {
     );
 }
 
-if (($result['current_version'] ?? '') !== '10.30.2') {
+if (($result['current_version'] ?? '') !== '10.30.3') {
     throw new RuntimeException(
         'Current version mismatch.'
     );
