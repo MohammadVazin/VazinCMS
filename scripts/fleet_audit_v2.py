@@ -32,6 +32,13 @@ MANIFEST_ROW = re.compile(r"^([a-f0-9]{64})  ([^\x00-\x1f\x7f]+)$")
 HOSTNAME = re.compile(r"^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$", re.I)
 VERSION = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][a-zA-Z0-9.-]+)?$")
 
+# These extensions can execute as server-side code, browser scripts, or CLI hooks.
+# Runtime data is intentionally not treated as an immutable release package.
+EXECUTABLE_SUFFIXES = frozenset({
+    ".php", ".phtml", ".phar", ".php5", ".py", ".sh",
+    ".js", ".mjs", ".cjs", ".cgi", ".pl", ".wasm",
+})
+
 
 class PolicyError(Exception):
     """Invalid or unsafe audit policy."""
@@ -110,8 +117,13 @@ def check_manifest(root: Path, pin: str | None = None) -> tuple[int, str]:
                 raise ValueError("manifest_duplicate_entry")
             seen.add(rel)
             entry = realroot / rel
-            if entry.is_symlink():
-                raise ValueError("manifest_entry_symlink:" + rel)
+            # Check every intermediate component, not only the final file.
+            # A symlinked directory can otherwise redirect manifest reads.
+            component = realroot
+            for part in pp.parts:
+                component = component / part
+                if component.is_symlink():
+                    raise ValueError("manifest_entry_symlink:" + rel)
             target = entry.resolve(strict=True)
             if os.path.commonpath((str(realroot), str(target))) != str(realroot) or not target.is_file():
                 raise ValueError("manifest_path_outside_release")
@@ -120,7 +132,47 @@ def check_manifest(root: Path, pin: str | None = None) -> tuple[int, str]:
             count += 1
     if count == 0:
         raise ValueError("manifest_empty")
+    if "VERSION" not in seen:
+        raise ValueError("manifest_version_uncovered")
     return count, _file_sha256(manifest)
+
+
+def find_untracked_executables(root: Path, max_reported: int = 12) -> list[str]:
+    """Find executable source files missing from the signed-manifest candidate.
+
+    A pinned MANIFEST alone does not cover code added *outside* its entries.
+    This additional check does not pretend to authenticate arbitrary mutable
+    data, PHP configuration, or provenance of content directories. Excludes
+    .git and __pycache__ only, which cannot be release-runtime code.
+    """
+    realroot = root.resolve(strict=True)
+    recorded: set[str] = set()
+    with (realroot / "MANIFEST.sha256").open("r", encoding="utf-8") as f:
+        for raw in f:
+            match = MANIFEST_ROW.fullmatch(raw.rstrip("\r\n"))
+            if match is None:
+                raise ValueError("manifest_syntax_invalid")
+            recorded.add(match.group(2))
+    extra: list[str] = []
+    for here, dirs, files in os.walk(realroot, followlinks=False):
+        base = Path(here)
+        for dirname in dirs:
+            if dirname in {".git", "__pycache__"}:
+                continue
+            if (base / dirname).is_symlink():
+                extra.append((base / dirname).relative_to(realroot).as_posix() + "/ [symlink]")
+                if len(extra) >= max_reported:
+                    return extra
+        dirs[:] = [d for d in dirs if d not in {".git", "__pycache__"}]
+        for name in files:
+            if Path(name).suffix.lower() not in EXECUTABLE_SUFFIXES:
+                continue
+            rel = (base / name).relative_to(realroot).as_posix()
+            if rel not in recorded:
+                extra.append(rel)
+                if len(extra) >= max_reported:
+                    return extra
+    return extra
 
 
 def load_health(site: dict[str, Any], timeout: float = 8.0) -> dict[str, Any]:
@@ -156,6 +208,7 @@ def audit_site(site: dict[str, Any], get_health: Callable[[dict[str, Any]], dict
     found_version = None
     checked_files = 0
     manifest_sha = None
+    unchecked_executables: list[str] = []
     try:
         actual_version = (root / "VERSION").read_text(encoding="utf-8").strip()
         if actual_version != site["release_version"]:
@@ -178,6 +231,12 @@ def audit_site(site: dict[str, Any], get_health: Callable[[dict[str, Any]], dict
         checked_files, manifest_sha = check_manifest(root, site.get("manifest_sha256"))
     except Exception as exc:
         errors.append("manifest_failed:" + str(exc)[:100])
+    try:
+        unchecked_executables = find_untracked_executables(root)
+        if unchecked_executables:
+            errors.append("untracked_executable_files")
+    except Exception as exc:
+        errors.append("untracked_executable_scan_failed:" + type(exc).__name__)
     return {
         "id": site["id"],
         "host": site["host"],
@@ -191,6 +250,7 @@ def audit_site(site: dict[str, Any], get_health: Callable[[dict[str, Any]], dict
         "manifest_files_checked": checked_files,
         "manifest_sha256": manifest_sha,
         "manifest_pinned": bool(site.get("manifest_sha256")),
+        "untracked_executable_examples": unchecked_executables,
         "errors": errors,
     }
 

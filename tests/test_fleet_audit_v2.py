@@ -147,6 +147,58 @@ class FleetAuditTests(unittest.TestCase):
             self.assertEqual(rc, 70)
             self.assertEqual(json.loads(out.getvalue())["decision"], "NO_GO")
 
+    def test_manifest_file_under_symlinked_parent_is_rejected(self):
+        internal = self.root / "internal"
+        internal.mkdir()
+        (internal / "app.php").write_text("<?php return true;\n", encoding="utf-8")
+        (self.root / "shortcut").symlink_to(internal, target_is_directory=True)
+        row = hashlib.sha256((internal / "app.php").read_bytes()).hexdigest()
+        with (self.root / "MANIFEST.sha256").open("a", encoding="utf-8") as stream:
+            stream.write(row + "  shortcut/app.php\n")
+        with self.assertRaisesRegex(ValueError, "manifest_entry_symlink"):
+            check_manifest(self.root)
+
+    def test_untracked_symlink_directory_rejected(self):
+        internal = self.root / "internal"
+        internal.mkdir()
+        (self.root / "shortcut").symlink_to(internal, target_is_directory=True)
+        report, rc = self.run_policy()
+        self.assertEqual(rc, 70)
+        self.assertIn("untracked_executable_files", report["sites"][0]["errors"])
+
+    def test_untracked_php_code_rejects_otherwise_clean_approved_site(self):
+        source = self.root / "src"
+        source.mkdir()
+        (source / "extra.php").write_text("<?php echo 'unexpected';\n", encoding="utf-8")
+        report, rc = self.run_policy()
+        self.assertEqual(rc, 70)
+        self.assertIn("untracked_executable_files", report["sites"][0]["errors"])
+        self.assertIn("src/extra.php", report["sites"][0]["untracked_executable_examples"])
+
+    def test_untracked_javascript_is_not_silently_accepted(self):
+        source = self.root / "public"
+        source.mkdir()
+        (source / "unreviewed.js").write_text("alert(1);\n", encoding="utf-8")
+        report, rc = self.run_policy()
+        self.assertEqual(rc, 70)
+        self.assertIn("untracked_executable_files", report["sites"][0]["errors"])
+
+    def test_untracked_mutable_data_not_conflated_with_release_code(self):
+        source = self.root / "resources"
+        source.mkdir()
+        (source / "content.json").write_text("{}\n", encoding="utf-8")
+        report, rc = self.run_policy()
+        self.assertEqual(rc, 0)
+        self.assertEqual(report["sites"][0]["untracked_executable_examples"], [])
+
+    def test_unlisted_version_file_rejected_even_with_manifest_pin(self):
+        line = (self.root / "MANIFEST.sha256").read_text().splitlines()
+        (self.root / "MANIFEST.sha256").write_text(line[1] + "\n", encoding="utf-8")
+        self.site["manifest_sha256"] = hashlib.sha256((self.root / "MANIFEST.sha256").read_bytes()).hexdigest()
+        report, rc = self.run_policy()
+        self.assertEqual(rc, 70)
+        self.assertIn("manifest_failed:manifest_version_uncovered", report["sites"][0]["errors"])
+
     def test_duplicate_site_id_rejected(self):
         with self.assertRaisesRegex(PolicyError, "Duplicate site id"):
             validate_policy({"schema": 1, "policy_state": "approved", "sites": [self.site, self.site]})
