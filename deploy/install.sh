@@ -62,6 +62,9 @@ RUNTIME_DATA="$RUNTIME_SITE/data"
 RUNTIME_STORAGE="$RUNTIME_DATA/storage"
 RUNTIME_UPLOADS="$RUNTIME_DATA/uploads"
 BACKUP_ROOT="$BACKUP_BASE/$SITE_KEY"
+FENCE_FILE="${VAZINCMS_SITE_FENCE_TOKEN_FILE:-}"
+FENCE_SOURCE="$SOURCE/deploy/site_fence_guard.py"
+DURABLE_FENCE="$STATE_ROOT/site-fence-guard-$NEW_VERSION.py"
 DURABLE_HELPER="$STATE_ROOT/atomic-release-$NEW_VERSION.py"
 DURABLE_ROLLBACK="$STATE_ROOT/rollback-$NEW_VERSION.sh"
 
@@ -77,6 +80,16 @@ python3 "$HELPER" validate-source "$SOURCE"
 (cd "$SOURCE" && sha256sum -c MANIFEST.sha256 >/dev/null)
 [[ "$(tr -d '\r\n' < "$SOURCE/VERSION")" == "$NEW_VERSION" ]] || { echo 'Release VERSION mismatch.' >&2; exit 2; }
 MANIFEST_SHA="$(sha256sum "$MANIFEST" | awk '{print $1}')"
+[[ -n "$FENCE_FILE" && "$FENCE_FILE" = /* ]] || {
+  echo 'NO_GO: exact root-owned per-site fence token-file must be supplied.' >&2
+  exit 70
+}
+[[ -s "$FENCE_SOURCE" && ! -L "$FENCE_SOURCE" ]] || exit 70
+# Before any runtime/state write, the exact target HTTPS host must be
+# independently fenced by Nginx.  Never try to stop/restart shared services.
+python3 "$FENCE_SOURCE" check --host "$SITE_HOST" --token-file "$FENCE_FILE"
+systemctl is-active --quiet nginx || { echo 'Shared Nginx is not running.' >&2; exit 70; }
+nginx -t >/dev/null
 
 python3 "$HELPER" ensure-dir "$STATE_BASE" /var/lib
 python3 "$HELPER" ensure-dir "$STATE_ROOT" "$STATE_BASE"
@@ -86,16 +99,22 @@ flock -n 9 || { echo 'Another CMS release operation is active for this site.' >&
 
 HELPER_TMP="$(mktemp "$STATE_ROOT/.atomic-release.XXXXXX")"
 ROLLBACK_TMP="$(mktemp "$STATE_ROOT/.rollback.XXXXXX")"
+FENCE_TMP="$(mktemp "$STATE_ROOT/.site-fence.XXXXXX")"
 install -m 0700 -o root -g root "$HELPER" "$HELPER_TMP"
 install -m 0700 -o root -g root "$SOURCE/deploy/rollback.sh" "$ROLLBACK_TMP"
+install -m 0700 -o root -g root "$FENCE_SOURCE" "$FENCE_TMP"
 python3 "$HELPER" fsync-file "$HELPER_TMP"
 python3 "$HELPER" fsync-file "$ROLLBACK_TMP"
+python3 "$HELPER" fsync-file "$FENCE_TMP"
 mv -T "$HELPER_TMP" "$DURABLE_HELPER"
 mv -T "$ROLLBACK_TMP" "$DURABLE_ROLLBACK"
+mv -T "$FENCE_TMP" "$DURABLE_FENCE"
 python3 "$HELPER" fsync-file "$DURABLE_HELPER"
 python3 "$HELPER" fsync-file "$DURABLE_ROLLBACK"
+python3 "$HELPER" fsync-file "$DURABLE_FENCE"
 [[ "$(sha256sum "$HELPER" | awk '{print $1}')" == "$(sha256sum "$DURABLE_HELPER" | awk '{print $1}')" ]] || exit 70
 [[ "$(sha256sum "$SOURCE/deploy/rollback.sh" | awk '{print $1}')" == "$(sha256sum "$DURABLE_ROLLBACK" | awk '{print $1}')" ]] || exit 70
+[[ "$(sha256sum "$FENCE_SOURCE" | awk '{print $1}')" == "$(sha256sum "$DURABLE_FENCE" | awk '{print $1}')" ]] || exit 70
 
 getent passwd www-data >/dev/null
 getent group www-data >/dev/null
@@ -132,19 +151,17 @@ if values.get("DB_CONNECTION", "pgsql") == "sqlite" and values.get("DB_DATABASE"
 PY
 }
 
+site_fenced() {
+  python3 "$DURABLE_FENCE" check --host "$SITE_HOST" --token-file "$FENCE_FILE"
+}
+
 health() {
-  local expected="$1" body='' attempt
+  local expected="$1" attempt
   for attempt in $(seq 1 30); do
-    body="$(curl -fsS --max-time 2 --resolve "$SITE_HOST:443:127.0.0.1" "https://$SITE_HOST/health" 2>/dev/null || true)"
-    if BODY="$body" EXPECTED="$expected" python3 - <<'PY'
-import json, os
-try:
-    value = json.loads(os.environ.get("BODY", ""))
-except Exception:
-    raise SystemExit(1)
-raise SystemExit(0 if isinstance(value, dict) and value.get("ok") is True and value.get("service") == "VazinCMS" and value.get("version") == os.environ["EXPECTED"] else 1)
-PY
-    then
+    # Guard validates that the public host remains fenced, that the loopback
+    # token-only QA channel returns the precise CMS version, and that the
+    # public host remains fenced after that QA request.
+    if python3 "$DURABLE_FENCE" health --host "$SITE_HOST" --token-file "$FENCE_FILE" --version "$expected"; then
       return 0
     fi
     sleep 1
@@ -154,13 +171,11 @@ PY
 
 recover_pending() {
   [[ "$(python3 "$DURABLE_HELPER" status "$STATE_ROOT")" == pending ]] || return 0
-  systemctl stop nginx
+  site_fenced || { echo 'NO_GO: site fence disappeared; journal preserved.' >&2; return 70; }
   python3 "$DURABLE_HELPER" recover "$STATE_ROOT" "$SITE_ROOT" "$OLD_VERSION" "$NEW_VERSION"
   nginx -t
-  systemctl start nginx
   health "$OLD_VERSION" || {
-    systemctl stop nginx
-    echo 'Recovered CMS did not pass exact old-version health.' >&2
+    echo 'Recovered CMS did not pass fenced old-version QA health.' >&2
     return 70
   }
 }
@@ -318,15 +333,12 @@ rollback_on_exit() {
   trap - EXIT HUP INT TERM
   set +e
   if [[ $code -ne 0 && "$(python3 "$DURABLE_HELPER" status "$STATE_ROOT" 2>/dev/null)" == pending ]]; then
-    systemctl stop nginx >/dev/null 2>&1 || true
-    if python3 "$DURABLE_HELPER" recover "$STATE_ROOT" "$SITE_ROOT" "$OLD_VERSION" "$NEW_VERSION" && nginx -t >/dev/null 2>&1 && systemctl start nginx >/dev/null 2>&1 && health "$OLD_VERSION"; then
+    if site_fenced && python3 "$DURABLE_HELPER" recover "$STATE_ROOT" "$SITE_ROOT" "$OLD_VERSION" "$NEW_VERSION" && nginx -t >/dev/null 2>&1 && health "$OLD_VERSION"; then
       :
     else
-      echo 'CMS recovery is ambiguous; Nginx remains stopped and journal retained.' >&2
+      echo 'NO_GO: per-site recovery ambiguous, fenced status not proven or journal retained; shared services untouched.' >&2
       code=70
     fi
-  elif [[ $code -ne 0 ]]; then
-    systemctl start nginx >/dev/null 2>&1 || true
   fi
   exit "$code"
 }
@@ -335,7 +347,7 @@ trap 'exit 129' HUP
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-systemctl stop nginx
+site_fenced || { echo 'NO_GO: site traffic fence lost before code swap.' >&2; exit 70; }
 python3 "$DURABLE_HELPER" validate-live "$SITE_ROOT" .env
 validate_external_environment "$SITE_ROOT/.env"
 python3 "$DURABLE_HELPER" swap "$STATE_ROOT" "$SITE_ROOT" "$OLD_VERSION" "$NEW_VERSION"
@@ -344,9 +356,10 @@ as_www php "$SITE_ROOT/scripts/extensions.php" sync
 as_www php "$SITE_ROOT/scripts/configure-site-profile.php"
 as_www php -r 'require $argv[1]."/src/bootstrap.php";$pdo=VazinCMS\Database::connection();if(!$pdo->query("SELECT 1")->fetchColumn()||VazinCMS\Version::current()!=="10.30.3")exit(1);' "$SITE_ROOT"
 nginx -t
-systemctl start nginx
+site_fenced || { echo 'NO_GO: public site fence lost after code swap.' >&2; exit 70; }
 health "$NEW_VERSION" || { systemctl status nginx --no-pager >&2 || true; false; }
 python3 "$DURABLE_HELPER" complete "$STATE_ROOT" "$SITE_ROOT" "$OLD_VERSION" "$NEW_VERSION"
 trap - EXIT HUP INT TERM
 echo "VazinCMS $NEW_VERSION installed for $SITE_KEY. Correlation: $CORRELATION"
 echo "Verified backup: $BACKUP_CHILD"
+echo "Per-site Nginx traffic fence remains ACTIVE; only the owner may lift it after acceptance."

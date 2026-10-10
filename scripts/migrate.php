@@ -4,7 +4,7 @@ declare(strict_types=1);
 require dirname(__DIR__) . '/src/bootstrap.php';
 
 use PDO;
-use VazinCMS\{Database,SchemaHealth};
+use VazinCMS\{Database,MigrationSql,SchemaHealth};
 
 $root = dirname(__DIR__);
 $pdo = Database::connection();
@@ -41,7 +41,10 @@ foreach ($files as $file) {
     if (!is_string($sql) || $sql === '') throw new RuntimeException('Migration unavailable: ' . $version);
     $pdo->beginTransaction();
     try {
-        $pdo->exec($sql);
+        if (MigrationSql::containsStatements($sql)) {
+            $pdo->exec($sql);
+        }
+        // A pure comment/no-op release remains an applied migration version.
         $mark = $pdo->prepare($driver === 'sqlite'
             ? 'INSERT OR IGNORE INTO schema_migrations(version) VALUES(:version)'
             : 'INSERT INTO schema_migrations(version) VALUES(:version) ON CONFLICT(version) DO NOTHING');
