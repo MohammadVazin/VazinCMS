@@ -54,6 +54,16 @@ foreach (['hydrate_old_slot', 'runtime-prepared', 'runtime-ready', 'runtime-swit
     $check(!str_contains($installer, $forbidden), 'External runtime installer contains legacy flow: ' . $forbidden);
 }
 
+// A mixed-vhost server must never be stopped for a one-site CMS release.
+foreach ([$installer, (string) file_get_contents($root . '/deploy/rollback.sh')] as $script) {
+    foreach (['systemctl stop nginx', 'systemctl start nginx', 'systemctl restart nginx', 'systemctl reload nginx'] as $forbidden) {
+        $check(!str_contains($script, $forbidden), 'Shared Nginx mutation forbidden: ' . $forbidden);
+    }
+    $check(str_contains($script, 'site_fenced'), 'Per-site external traffic fence is mandatory.');
+}
+$check(is_file($root . '/deploy/site_fence_guard.py'), 'Signed release must carry the non-mutating fence verifier.');
+$check(is_file($root . '/docs/SITE-ONLY-ROLLOUT-FENCE-FA.md'), 'Per-site fence acceptance runbook missing.');
+
 $helper = (string) file_get_contents($root . '/deploy/atomic_release.py');
 $check(str_contains($helper, 'existing external runtime bindings are not exact before code swap'), 'Existing-runtime atomic swap guard is missing.');
 $check(str_contains($helper, 'elif runtime["mode"]=="existing"'), 'Existing-runtime swap branch is missing.');

@@ -42,29 +42,30 @@ OLD_VERSION='10.29.0'
 NEW_VERSION='10.30.3'
 STATE_ROOT="/var/lib/vazincms-deploy/$SITE_KEY"
 HELPER="$STATE_ROOT/atomic-release-$NEW_VERSION.py"
+FENCE_HELPER="$STATE_ROOT/site-fence-guard-$NEW_VERSION.py"
+FENCE_FILE="${VAZINCMS_SITE_FENCE_TOKEN_FILE:-}"
+
 
 for command in python3 nginx curl flock chmod systemctl; do
   command -v "$command" >/dev/null || { echo "Missing dependency: $command" >&2; exit 3; }
 done
+[[ -n "$FENCE_FILE" && "$FENCE_FILE" = /* ]] || { echo 'NO_GO: missing per-site traffic fence token-file.' >&2; exit 70; }
+[[ -s "$FENCE_HELPER" && ! -L "$FENCE_HELPER" ]] || exit 70
+python3 "$FENCE_HELPER" check --host "$SITE_HOST" --token-file "$FENCE_FILE"
 [[ -s "$HELPER" && ! -L "$HELPER" ]] || { echo 'Durable CMS release helper is missing or unsafe.' >&2; exit 70; }
 exec 9>"$STATE_ROOT/install.lock"
 chmod 0600 "$STATE_ROOT/install.lock"
 flock -n 9 || { echo 'Another CMS release operation is active.' >&2; exit 75; }
 systemctl is-active --quiet nginx || { echo 'Nginx must be active before a live CMS rollback.' >&2; exit 70; }
 
+site_fenced() {
+  python3 "$FENCE_HELPER" check --host "$SITE_HOST" --token-file "$FENCE_FILE"
+}
+
 health() {
-  local expected="$1" body='' attempt
+  local expected="$1" attempt
   for attempt in $(seq 1 30); do
-    body="$(curl -fsS --max-time 2 --resolve "$SITE_HOST:443:127.0.0.1" "https://$SITE_HOST/health" 2>/dev/null || true)"
-    if BODY="$body" EXPECTED="$expected" python3 - <<'PY'
-import json, os
-try:
-    value = json.loads(os.environ.get("BODY", ""))
-except Exception:
-    raise SystemExit(1)
-raise SystemExit(0 if isinstance(value, dict) and value.get("ok") is True and value.get("service") == "VazinCMS" and value.get("version") == os.environ["EXPECTED"] else 1)
-PY
-    then
+    if python3 "$FENCE_HELPER" health --host "$SITE_HOST" --token-file "$FENCE_FILE" --version "$expected"; then
       return 0
     fi
     sleep 1
@@ -84,11 +85,10 @@ rollback_on_exit() {
   trap - EXIT HUP INT TERM
   set +e
   if [[ $code -ne 0 ]]; then
-    systemctl stop nginx >/dev/null 2>&1 || true
-    if python3 "$HELPER" recover "$STATE_ROOT" "$SITE_ROOT" "$OLD_VERSION" "$NEW_VERSION" && nginx -t >/dev/null 2>&1 && systemctl start nginx >/dev/null 2>&1 && health "$OLD_VERSION"; then
+    if site_fenced && python3 "$HELPER" recover "$STATE_ROOT" "$SITE_ROOT" "$OLD_VERSION" "$NEW_VERSION" && nginx -t >/dev/null 2>&1 && health "$OLD_VERSION"; then
       :
     else
-      echo 'CMS rollback recovery is ambiguous; Nginx remains stopped and journal retained.' >&2
+      echo 'NO_GO: site fence or recovery ambiguous; shared Nginx untouched and journal retained.' >&2
       code=70
     fi
   fi
@@ -99,10 +99,11 @@ trap 'exit 129' HUP
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-systemctl stop nginx
+site_fenced || { echo 'NO_GO: per-site fence disappeared before rollback.' >&2; exit 70; }
 python3 "$HELPER" recover "$STATE_ROOT" "$SITE_ROOT" "$OLD_VERSION" "$NEW_VERSION"
 nginx -t
-systemctl start nginx
+site_fenced || { echo 'NO_GO: site fence disappeared after rollback.' >&2; exit 70; }
 health "$OLD_VERSION" || { systemctl status nginx --no-pager >&2 || true; false; }
 trap - EXIT HUP INT TERM
 echo "VazinCMS code rolled back to $OLD_VERSION for $SITE_KEY. External runtime and schema remain preserved."
+echo "Per-site Nginx traffic fence remains ACTIVE for manual owner acceptance."

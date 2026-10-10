@@ -13,13 +13,18 @@ class InstallerLiveContractTests(unittest.TestCase):
         cls.rollback = (ROOT / "deploy" / "rollback.sh").read_text(encoding="utf-8")
 
     def test_public_health_uses_exact_https_loopback_contract(self) -> None:
+        guard = (ROOT / "deploy/site_fence_guard.py").read_text(encoding="utf-8")
+        self.assertIn('f"{host}:{port}:127.0.0.1"', guard)
+        self.assertIn('"--proto", "=https"', guard)
+        self.assertIn('"--noproxy", "*"', guard)
+        self.assertIn('reply.get("service") != "VazinCMS"', guard)
+        self.assertIn('reply.get("version") != expected_version', guard)
+        self.assertIn('check_fenced(host, port, token', guard)
         for script in (self.install, self.rollback):
-            self.assertIn('--resolve "$SITE_HOST:443:127.0.0.1"', script)
-            self.assertIn('"https://$SITE_HOST/health"', script)
+            self.assertIn('health --host "$SITE_HOST" --token-file "$FENCE_FILE"', script)
             self.assertNotIn("'http://127.0.0.1/health'", script)
-            normalized = re.sub(r"\s+", "", script.replace("'", '"'))
-            self.assertIn('value.get("service")=="VazinCMS"', normalized)
-            self.assertIn('value.get("version")==os.environ["EXPECTED"]', normalized)
+            self.assertNotIn("systemctl stop nginx", script)
+            self.assertNotIn("systemctl start nginx", script)
 
     def test_itgala_is_not_a_cms_release_target(self) -> None:
         for script in (self.install, self.rollback):
