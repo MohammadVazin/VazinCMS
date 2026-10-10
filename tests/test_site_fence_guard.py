@@ -66,7 +66,7 @@ class SiteFenceGuardTests(unittest.TestCase):
 
     def test_unfenced_200_fails_closed(self):
         with patch.object(guard, "curl_request", return_value=self.response(http=200)):
-            with self.assertRaisesRegex(guard.FenceError, "site_is_not_fenced"):
+            with self.assertRaisesRegex(guard.FenceError, "public_route_not_fenced"):
                 guard.check_fenced(self.HOST, 443, self.TOKEN)
 
     def test_header_does_not_match_fails_closed(self):
@@ -80,28 +80,62 @@ class SiteFenceGuardTests(unittest.TestCase):
                 guard.check_fenced(self.HOST, 443, self.TOKEN)
 
     def test_qa_health_with_double_fence_observation(self):
-        with patch.object(guard, "curl_request", side_effect=[
-            self.response(),
-            (200, "HTTP/2 200\r\n\r\n", '{"ok":true,"service":"VazinCMS","version":"10.30.3"}'),
-            self.response()
-        ]) as observed:
+        def reply(_host, _port, _token, *, qa, **kw):
+            if qa:
+                self.assertEqual(kw["path"], guard.QA_PATH)
+                return 200, "HTTP/2 200\\r\\n\\r\\n", '{"ok":true,"service":"VazinCMS","version":"10.30.3"}'
+            return self.response()
+        with patch.object(guard, "curl_request", side_effect=reply) as observed:
             guard.check_qa_health(self.HOST, 443, self.TOKEN, "10.30.3")
-            self.assertEqual(observed.call_count, 3)
+            self.assertEqual(observed.call_count, len(guard.PUBLIC_PROBES) * 2 + 1)
 
     def test_qa_health_fails_on_old_version(self):
-        with patch.object(guard, "curl_request", side_effect=[
-            self.response(),
-            (200, "HTTP/2 200\r\n\r\n", '{"ok":true,"service":"VazinCMS","version":"10.29.0"}')
-        ]):
+        def reply(_host, _port, _token, *, qa, **kw):
+            if qa:
+                return 200, "HTTP/2 200\\r\\n\\r\\n", '{"ok":true,"service":"VazinCMS","version":"10.29.0"}'
+            return self.response()
+        with patch.object(guard, "curl_request", side_effect=reply):
             with self.assertRaisesRegex(guard.FenceError, "not_expected_version"):
                 guard.check_qa_health(self.HOST, 443, self.TOKEN, "10.30.3")
 
     def test_qa_bypass_must_not_be_public_503(self):
-        with patch.object(guard, "curl_request", side_effect=[
-            self.response(), self.response()
-        ]):
+        with patch.object(guard, "curl_request", return_value=self.response()):
             with self.assertRaisesRegex(guard.FenceError, "bypass_unavailable"):
                 guard.check_qa_health(self.HOST, 443, self.TOKEN, "10.30.3")
+
+    def test_partial_fence_rejects_unblocked_assets(self):
+        def reply(_host, _port, _token, *, qa, **kw):
+            if kw.get("path") == "/assets/app.js":
+                return self.response(http=200)
+            return self.response()
+        with patch.object(guard, "curl_request", side_effect=reply):
+            with self.assertRaisesRegex(guard.FenceError, "public_route_not_fenced"):
+                guard.check_fenced(self.HOST, 443, self.TOKEN)
+
+    def test_post_internal_health_cannot_bypass_public_fence(self):
+        def reply(_host, _port, _token, *, qa, **kw):
+            if kw.get("method") == "POST":
+                return self.response(http=200)
+            return self.response()
+        with patch.object(guard, "curl_request", side_effect=reply):
+            with self.assertRaisesRegex(guard.FenceError, "public_route_not_fenced"):
+                guard.check_fenced(self.HOST, 443, self.TOKEN)
+
+    def test_fence_covers_multiple_location_classes(self):
+        routes = set(guard.PUBLIC_PROBES)
+        for path in ("/", "/health", "/login", "/admin", "/api/v3/content", "/assets/app.js", guard.QA_PATH):
+            self.assertIn(("GET", path), routes)
+        self.assertIn(("POST", guard.QA_PATH), routes)
+        self.assertNotIn(("POST", "/api/v3/content"), routes)
+
+    def test_private_health_endpoint_is_distinct_from_public_route(self):
+        self.assertNotEqual(guard.QA_PATH, "/health")
+        self.assertTrue(guard.QA_PATH.startswith("/__"))
+        self.assertIn("site_qa_health_not_expected_version", (ROOT / "deploy/site_fence_guard.py").read_text())
+
+    def test_qa_only_uses_private_internal_health_path(self):
+        with self.assertRaisesRegex(guard.FenceError, "qa_must_use_internal_health_get"):
+            guard.curl_request(self.HOST, 443, self.TOKEN, qa=True, path="/health")
 
     def test_curl_uses_verified_tls_loopback_no_follow(self):
         mock = type("Done", (), {"returncode":0, "stdout":"HTTP/2 503\r\n\r\nVAZIN_FENCE_HTTP_CODE:503\n", "stderr":""})()
@@ -118,7 +152,7 @@ class SiteFenceGuardTests(unittest.TestCase):
     def test_qa_token_is_sent_on_stdin_not_argv(self):
         mock = type("Done", (), {"returncode":0, "stdout":"HTTP/2 200\r\n\r\n{}\nVAZIN_FENCE_HTTP_CODE:200\n", "stderr":""})()
         with patch.object(guard.subprocess, "run", return_value=mock) as run:
-            guard.curl_request(self.HOST, 443, self.TOKEN, qa=True)
+            guard.curl_request(self.HOST, 443, self.TOKEN, qa=True, path=guard.QA_PATH)
             args = run.call_args.args[0]
             self.assertNotIn(self.TOKEN, " ".join(args))
             self.assertIn(self.TOKEN, run.call_args.kwargs["input"])

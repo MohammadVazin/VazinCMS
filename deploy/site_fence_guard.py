@@ -19,6 +19,13 @@ HOST = re.compile(r"^[a-z0-9](?:[a-z0-9.-]{0,250}[a-z0-9])?$")
 TOKEN = re.compile(r"^[A-Za-z0-9_-]{32,96}$")
 VERSION = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+$")
 MANUAL = 70
+# A public 503 on /health alone does not prove tenant-wide maintenance.
+QA_PATH = "/__vazin_cms_health"
+PUBLIC_PATHS = (
+    "/health", "/", "/login", "/admin", "/api/v3/content",
+    "/assets/app.js", QA_PATH,
+)
+PUBLIC_PROBES = tuple(("GET", path) for path in PUBLIC_PATHS) + (("POST", QA_PATH),)
 
 
 class FenceError(Exception):
@@ -60,9 +67,18 @@ def read_token(token_file: Path, *, required_uid: int = 0) -> str:
     return candidate
 
 
-def curl_request(host: str, port: int, token: str, *, qa: bool, ca_file: str | None = None) -> tuple[int, str, str]:
+def curl_request(
+    host: str, port: int, token: str, *, qa: bool,
+    ca_file: str | None = None, path: str = "/health", method: str = "GET",
+) -> tuple[int, str, str]:
     if HOST.fullmatch(host) is None or not 1 <= port <= 65535:
         raise FenceError("host_or_port_invalid")
+    if path not in PUBLIC_PATHS or method not in {"GET", "POST"}:
+        raise FenceError("unsupported_fence_probe")
+    if qa and (path != QA_PATH or method != "GET"):
+        raise FenceError("qa_must_use_internal_health_get")
+    if method == "POST" and path != QA_PATH:
+        raise FenceError("post_probes_must_use_inert_internal_route")
     command = [
         "curl", "--silent", "--show-error", "--noproxy", "*",
         "--connect-timeout", "3", "--max-time", "7",
@@ -79,7 +95,9 @@ def curl_request(host: str, port: int, token: str, *, qa: bool, ca_file: str | N
         config = 'header = "X-Vazin-QA-Fence-Token: ' + token + '"\n'
     else:
         config = None
-    command.extend(["https://" + host + ":" + str(port) + "/health"])
+    if method == "POST":
+        command.extend(["--request", "POST", "--data-binary", ""])
+    command.extend(["https://" + host + ":" + str(port) + path])
     result = subprocess.run(command, input=config, text=True, capture_output=True, timeout=9, check=False)
     if result.returncode != 0:
         raise FenceError("fence_https_verification_failed")
@@ -95,16 +113,21 @@ def curl_request(host: str, port: int, token: str, *, qa: bool, ca_file: str | N
 
 
 def check_fenced(host: str, port: int, token: str, *, ca_file: str | None = None) -> None:
-    code, headers, _ = curl_request(host, port, token, qa=False, ca_file=ca_file)
-    if code != 503:
-        raise FenceError("site_is_not_fenced_with_http_503")
-    values = re.findall(r"(?im)^x-vazin-release-fence:[ \t]*([^\r\n]+)", headers)
-    public_fingerprint = hashlib.sha256(token.encode("ascii")).hexdigest()
-    if len(values) != 1 or values[0].strip() != public_fingerprint:
-        raise FenceError("site_fence_receipt_does_not_match")
-    policies = re.findall(r"(?im)^cache-control:[ \t]*([^\r\n]+)", headers)
-    if not any("no-store" in s.lower() for s in policies):
-        raise FenceError("site_fence_must_not_be_cached")
+    # Verify all representative Nginx location classes; never regard a lone
+    # /health=503 as proof the public site is closed.
+    fingerprint = hashlib.sha256(token.encode("ascii")).hexdigest()
+    for method, path in PUBLIC_PROBES:
+        code, headers, _ = curl_request(
+            host, port, token, qa=False, ca_file=ca_file, path=path, method=method
+        )
+        if code != 503:
+            raise FenceError("public_route_not_fenced")
+        values = re.findall(r"(?im)^x-vazin-release-fence:[ \t]*([^\r\n]+)", headers)
+        if len(values) != 1 or values[0].strip() != fingerprint:
+            raise FenceError("site_fence_receipt_does_not_match")
+        policies = re.findall(r"(?im)^cache-control:[ \t]*([^\r\n]+)", headers)
+        if not any("no-store" in value.lower() for value in policies):
+            raise FenceError("site_fence_must_not_be_cached")
 
 
 def check_qa_health(host: str, port: int, token: str, expected_version: str, *, ca_file: str | None = None) -> None:
@@ -112,7 +135,11 @@ def check_qa_health(host: str, port: int, token: str, expected_version: str, *, 
     if VERSION.fullmatch(expected_version) is None:
         raise FenceError("expected_version_not_semver")
     check_fenced(host, port, token, ca_file=ca_file)
-    code, _headers, body = curl_request(host, port, token, qa=True, ca_file=ca_file)
+    # The normal /health may be served by Nginx itself (e.g. Vazin Travel
+    # 1.0.0); this internal FastCGI path must always reach CMS /health.
+    code, _headers, body = curl_request(
+        host, port, token, qa=True, ca_file=ca_file, path=QA_PATH
+    )
     if code != 200:
         raise FenceError("site_qa_bypass_unavailable")
     try:
