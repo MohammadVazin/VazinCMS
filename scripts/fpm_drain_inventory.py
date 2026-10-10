@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Read-only, NON-AUTHORIZING VazinCMS Nginx/FPM shared-pool inventory.
+"""Non-authorizing, read-only inventory of Nginx vhosts and PHP-FPM pools.
 
-This is an observation, NOT proof of zero in-flight writes or safe rollout.
-It never connects to PHP-FPM, executes Nginx, changes a service or approves release.
+No Nginx reload, no FPM connection, no worker manipulation, no release permit.
+Static config is *never* sufficient to attest drained in-flight requests.
 """
 from __future__ import annotations
 
@@ -12,108 +12,200 @@ from pathlib import Path
 import re
 import sys
 
-DOMAIN = re.compile(r"^[a-z0-9](?:[a-z0-9.-]{0,250}[a-z0-9])?$")
-SERVER_NAME = re.compile(r"\bserver_name\s+([^;{}]+);")
-FASTCGI_PASS = re.compile(r"\bfastcgi_pass\s+([^;{}]+);")
-FPM_SETTING = re.compile(r"(?m)^\s*(listen|pm|max_children|pm\.max_children|pm\.status_path)\s*=\s*([^;\r\n]+)")
 NO_GO = 70
+DOMAIN = re.compile(r"^[a-z0-9](?:[a-z0-9.-]{0,250}[a-z0-9])?$")
+SERVER = re.compile(r"\bserver\s*\{")
+SERVER_NAME = re.compile(r"\bserver_name\s+([^;{}]+);")
+FASTCGI = re.compile(r"\bfastcgi_pass\s+([^;{}]+);")
+INCLUDE = re.compile(r"\binclude\s+([^;{}]+);")
+SETTING = re.compile(r"(?m)^\s*(listen|pm\.max_children|pm\.status_path|pm\.status_listen)\s*=\s*([^;\r\n]+)")
 
 
-def strip_comments(text: str) -> str:
-    # Static observation only. Full Nginx grammar/includes and runtime live
-    # config cannot be inferred from simple text parsing.
-    return "\n".join(line.split("#", 1)[0] for line in text.splitlines())
+def without_nginx_comments(text: str) -> str:
+    """Remove unquoted comments while preserving line/character offsets."""
+    lines: list[str] = []
+    for line in text.splitlines(keepends=True):
+        quote: str | None = None
+        escape = False
+        buf: list[str] = []
+        for c in line:
+            if escape:
+                buf.append(c)
+                escape = False
+                continue
+            if c == "\\":
+                escape = True
+                buf.append(c)
+                continue
+            if quote:
+                if c == quote:
+                    quote = None
+                buf.append(c)
+            elif c in ("'", '"'):
+                quote = c
+                buf.append(c)
+            elif c == "#":
+                buf.extend(" " * (len(line) - len(buf)))
+                break
+            else:
+                buf.append(c)
+        lines.append("".join(buf))
+    return "".join(lines)
 
 
-def active_nginx_backends(config_dir: Path) -> dict[str, set[str]]:
-    if not config_dir.is_dir():
-        raise ValueError("nginx_directory_unavailable")
-    results: dict[str, set[str]] = {}
-    for f in sorted(config_dir.iterdir()):
-        if not f.is_file():
+def ignore_quoted_braces(text: str) -> str:
+    buf: list[str] = []
+    quote: str | None = None
+    escape = False
+    for c in text:
+        if escape:
+            buf.append(" ")
+            escape = False
+        elif c == "\\" and quote:
+            buf.append(" ")
+            escape = True
+        elif quote:
+            if c == quote:
+                quote = None
+            buf.append(" ")
+        elif c in ("'", '"'):
+            quote = c
+            buf.append(" ")
+        else:
+            buf.append(c)
+    if quote:
+        raise ValueError("nginx_quoted_value_not_closed")
+    return "".join(buf)
+
+
+def nginx_server_blocks(text: str) -> list[str]:
+    """Conservative balanced server-block reader (includes not expanded)."""
+    stripped = without_nginx_comments(text)
+    masked = ignore_quoted_braces(stripped)
+    blocks: list[str] = []
+    cursor = 0
+    while match := SERVER.search(masked, cursor):
+        opened = match.end() - 1
+        depth = 0
+        closed: int | None = None
+        for i in range(opened, len(masked)):
+            if masked[i] == "{":
+                depth += 1
+            elif masked[i] == "}":
+                depth -= 1
+                if depth == 0:
+                    closed = i
+                    break
+        if closed is None:
+            raise ValueError("nginx_server_block_not_closed")
+        blocks.append(stripped[opened + 1:closed])
+        cursor = closed + 1
+    return blocks
+
+
+def nginx_hosts(directory: Path) -> dict[str, dict]:
+    if not directory.is_dir():
+        raise ValueError("nginx_dir_not_found")
+    output: dict[str, dict] = {}
+    for path in sorted(directory.iterdir()):
+        if not path.is_file():
             continue
         try:
-            text = strip_comments(f.read_text(encoding="utf-8"))
+            sections = nginx_server_blocks(path.read_text(encoding="utf-8"))
         except (OSError, UnicodeError):
             raise ValueError("nginx_config_unreadable") from None
-        hosts = {name.strip().lower() for item in SERVER_NAME.findall(text) for name in item.split()}
-        endpoints = {item.strip() for item in FASTCGI_PASS.findall(text)}
-        for host in hosts:
-            if DOMAIN.fullmatch(host):
-                results.setdefault(host, set()).update(endpoints)
-    return results
+        for section in sections:
+            hosts = {
+                candidate.lower().strip()
+                for raw in SERVER_NAME.findall(section) for candidate in raw.split()
+            }
+            endpoints = {raw.strip() for raw in FASTCGI.findall(section)}
+            has_includes = bool(INCLUDE.findall(section))
+            for host in hosts:
+                if DOMAIN.fullmatch(host) is None:
+                    continue
+                row = output.setdefault(host, {"upstreams": set(), "has_unexpanded_includes": False})
+                row["upstreams"].update(endpoints)
+                row["has_unexpanded_includes"] |= has_includes
+    return output
 
 
-def pool_inventory(pool_dir: Path) -> dict[str, dict]:
-    if not pool_dir.is_dir():
-        raise ValueError("fpm_pool_directory_unavailable")
-    results: dict[str, dict] = {}
-    for f in sorted(pool_dir.glob("*.conf")):
+def fpm_pools(directory: Path) -> dict[str, dict]:
+    if not directory.is_dir():
+        raise ValueError("fpm_pool_dir_not_found")
+    output: dict[str, dict] = {}
+    for path in sorted(directory.glob("*.conf")):
         try:
-            content = strip_comments(f.read_text(encoding="utf-8"))
+            text = path.read_text(encoding="utf-8")
         except (OSError, UnicodeError):
             raise ValueError("fpm_pool_unreadable") from None
-        settings = dict((k, v.strip()) for k, v in FPM_SETTING.findall(content))
+        settings = dict((k, v.strip()) for k, v in SETTING.findall(text))
         if not settings.get("listen"):
             continue
-        key = settings["listen"].removeprefix("unix:")
-        results[key] = {
-            "pool": f.stem,
-            "status_path_configured": bool(settings.get("pm.status_path")),
+        listen = settings["listen"].removeprefix("unix:")
+        if listen in output:
+            raise ValueError("duplicate_fpm_pool_listener")
+        output[listen] = {
+            "pool": path.stem,
             "max_children": settings.get("pm.max_children"),
+            "status_path_configured": bool(settings.get("pm.status_path")),
+            "status_listener_configured": bool(settings.get("pm.status_listen")),
         }
-    return results
+    return output
 
 
-def inspect(nginx_dir: Path, pool_dir: Path, hosts: list[str]) -> dict:
+def inspect(nginx_dir: Path, fpm_dir: Path, hosts: list[str]) -> dict:
     if not hosts or len(set(hosts)) != len(hosts) or any(DOMAIN.fullmatch(x) is None for x in hosts):
-        raise ValueError("requested_host_list_invalid")
-    allhosts = active_nginx_backends(nginx_dir)
-    pools = pool_inventory(pool_dir)
-    socket_users: dict[str, set[str]] = {}
-    for domain, connections in allhosts.items():
-        for backend in connections:
-            socket_users.setdefault(backend, set()).add(domain)
+        raise ValueError("host_filter_invalid")
+    all_hosts = nginx_hosts(nginx_dir)
+    all_pools = fpm_pools(fpm_dir)
+    use_count: dict[str, set[str]] = {}
+    for host, details in all_hosts.items():
+        for upstream in details["upstreams"]:
+            use_count.setdefault(upstream, set()).add(host)
     sites = []
     for host in hosts:
-        endpoints = sorted(allhosts.get(host, ()))
-        notes = ["site_inflight_writes_not_observed", "site_background_jobs_not_observed"]
-        if not endpoints:
-            notes.append("no_fastcgi_upstream_visible_in_static_vhost")
-        upstreams = []
-        for backend in endpoints:
+        entry = all_hosts.get(host, {"upstreams": set(), "has_unexpanded_includes": True})
+        blockers = ["inflight_requests_unobserved", "job_queues_unobserved"]
+        if entry["has_unexpanded_includes"]:
+            blockers.append("nginx_includes_not_expanded")
+        if not entry["upstreams"]:
+            blockers.append("fastcgi_upstream_not_visible")
+        backends = []
+        for backend in sorted(entry["upstreams"]):
+            mapped = all_pools.get(backend.removeprefix("unix:"))
+            linked_hosts = len(use_count.get(backend, set()))
             if not backend.startswith("unix:"):
-                notes.append("fastcgi_backend_not_unix_socket_or_unresolved")
-            pool = pools.get(backend.removeprefix("unix:"))
-            owners = sorted(socket_users.get(backend, set()))
-            if len(owners) > 1:
-                notes.append("fastcgi_backend_shared_with_other_vhosts")
-            if pool is None:
-                notes.append("backend_not_mapped_to_local_fpm_pool")
-            elif not pool["status_path_configured"]:
-                notes.append("fpm_status_path_not_configured")
-            upstreams.append({
-                "upstream": backend if backend.startswith("unix:/run/php/") else "nonstandard_or_unresolved",
-                "observed_host_count": len(owners),
-                "pool_name": pool["pool"] if pool else None,
-                "status_path_configured": bool(pool and pool["status_path_configured"]),
+                blockers.append("fastcgi_upstream_dynamic_or_non_unix")
+            if linked_hosts > 1:
+                blockers.append("fpm_listener_shared_across_vhosts")
+            if mapped is None:
+                blockers.append("fpm_listener_not_found")
+            elif not mapped["status_path_configured"] and not mapped["status_listener_configured"]:
+                blockers.append("no_fpm_status_endpoint_configured")
+            backends.append({
+                "upstream": backend if backend.startswith("unix:/run/php/") else "unresolved_or_nonstandard",
+                "observed_host_count": linked_hosts,
+                "pool": mapped["pool"] if mapped else None,
+                "status_path_configured": bool(mapped and mapped["status_path_configured"]),
+                "status_listener_configured": bool(mapped and mapped["status_listener_configured"]),
             })
         sites.append({
             "host": host,
-            "upstreams": upstreams,
-            "blockers": sorted(set(notes)),
+            "backends": backends,
+            "blockers": sorted(set(blockers)),
             "drain_verified": False,
         })
     return {
         "schema": 1,
         "decision": "NO_GO",
         "release_authorized": False,
-        "source_quality": "read_only_static_config_observation_not_live_nginx_fpm_attestation",
+        "source_quality": "static_site_config_only_not_expanded_nginx_T_or_live_php_fpm",
         "sites": sites,
         "global_blockers": [
-            "inflight_request_completion_not_proven",
-            "background_job_quiescence_not_proven",
-            "owner_approved_drain_evidence_not_available",
+            "inflight_request_completion_not_attested",
+            "background_job_quiescence_not_attested",
+            "independent_owner_approval_missing",
         ],
     }
 
@@ -125,14 +217,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--hosts", nargs="+", required=True)
     args = parser.parse_args(argv)
     try:
-        result = inspect(args.nginx_dir, args.fpm_dir, args.hosts)
+        report = inspect(args.nginx_dir, args.fpm_dir, args.hosts)
     except (OSError, ValueError):
-        print('{"decision":"NO_GO","release_authorized":false,"error":"inventory_unverifiable"}')
+        print('{"decision":"NO_GO","release_authorized":false,"error":"inventory_inconclusive"}')
         return NO_GO
-    print(json.dumps(result, sort_keys=True, ensure_ascii=False))
-    # Even a unique FPM pool does not establish zero running requests.
+    print(json.dumps(report, ensure_ascii=False, sort_keys=True))
     return NO_GO
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    sys.exit(main())

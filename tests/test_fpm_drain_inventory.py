@@ -1,83 +1,134 @@
-"""Offline fail-closed coverage of Nginx/FPM upstream inventory."""
+"""Offline contract tests: static FPM inventory must never authorize rollout."""
+from __future__ import annotations
+
+import contextlib
 import importlib.util
+from io import StringIO
 import json
 from pathlib import Path
 import tempfile
 import unittest
-from contextlib import redirect_stdout
-from io import StringIO
 
-ROOT=Path(__file__).resolve().parents[1]
-SPEC=importlib.util.spec_from_file_location("fpm_drain_inventory", ROOT/"scripts/fpm_drain_inventory.py")
-assert SPEC and SPEC.loader
-guard=importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(guard)
+ROOT = Path(__file__).resolve().parents[1]
+SPEC = importlib.util.spec_from_file_location("fpm_drain_inventory", ROOT / "scripts/fpm_drain_inventory.py")
+assert SPEC is not None and SPEC.loader is not None
+audit = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(audit)
 
 
 class DrainInventoryTests(unittest.TestCase):
-    def setUp(self):
-        self.temp=tempfile.TemporaryDirectory()
+    def setUp(self) -> None:
+        self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
-        self.root=Path(self.temp.name)
-        self.nginx=self.root/"nginx"
-        self.pools=self.root/"pools"
+        base = Path(self.temp.name)
+        self.nginx = base / "nginx"
+        self.pools = base / "pools"
         self.nginx.mkdir()
         self.pools.mkdir()
-        (self.nginx/"travel.conf").write_text('server { server_name travel.example.test; '
-            'root /var/www/travel/public; location = /health { return 200 "{}"; } '
-            'location ~ \\.php$ {fastcgi_pass unix:/run/php/shared.sock;} }\n'
-            'ssl_certificate_key /private/root-only/tls-secret.pem;\n')
-        (self.nginx/"visa.conf").write_text('server {server_name visa.example.test; '
-            'location ~ \\.php$ {fastcgi_pass unix:/run/php/shared.sock;} }\n')
-        (self.nginx/"studio.conf").write_text('server {server_name studio.example.test; '
-            'location ~ \\.php$ {fastcgi_pass unix:/run/php/studio.sock;} }\n')
-        (self.pools/"shared.conf").write_text('[shared]\nlisten = /run/php/shared.sock\npm.max_children = 10\n')
-        (self.pools/"studio.conf").write_text('[studio]\nlisten = /run/php/studio.sock\npm.status_path = /fpm_status\npm.max_children = 4\n')
+        (self.nginx / "shared.conf").write_text("""
+server { server_name travel.example.test; root /var/www/travel/public;
+  location ~ \\.php$ { fastcgi_pass unix:/run/php/www.sock; }
+}
+server { server_name visa.example.test; root /var/www/visa/public;
+  location ~ \\.php$ { fastcgi_pass unix:/run/php/www.sock; }
+}
+# server { server_name fake.example.test; fastcgi_pass unix:/run/php/fake.sock; }
+""")
+        (self.nginx / "studio.conf").write_text("""
+server { server_name studio.example.test; root /var/www/studio/public;
+ location = /admin { include /etc/nginx/fastcgi_params; fastcgi_pass unix:/run/php/studio.sock; }
+}
+""")
+        (self.pools / "www.conf").write_text(
+            "[www]\nlisten = /run/php/www.sock\npm.max_children = 10\n;pm.status_path=/commented\n"
+        )
+        (self.pools / "studio.conf").write_text(
+            "[studio]\nlisten = /run/php/studio.sock\npm.status_path = /_status\n"
+            "pm.status_listen = /run/php/studio-status.sock\n"
+        )
 
-    def test_shared_vhosts_rejected_even_with_healthy_php(self):
-        report=guard.inspect(self.nginx,self.pools,["travel.example.test","visa.example.test"])
-        self.assertEqual(report["decision"],"NO_GO")
-        for site in report["sites"]:
-            self.assertIn("fastcgi_backend_shared_with_other_vhosts",site["blockers"])
-            self.assertFalse(site["drain_verified"])
-
-    def test_dedicated_pool_is_not_an_authorized_drain(self):
-        report=guard.inspect(self.nginx,self.pools,["studio.example.test"])
-        site=report["sites"][0]
-        self.assertEqual(site["upstreams"][0]["pool_name"],"studio")
-        self.assertTrue(site["upstreams"][0]["status_path_configured"])
-        self.assertFalse(site["drain_verified"])
+    def test_two_vhosts_in_one_file_share_one_backend(self):
+        report = audit.inspect(self.nginx, self.pools, ["travel.example.test", "visa.example.test"])
+        self.assertEqual(report["decision"], "NO_GO")
         self.assertFalse(report["release_authorized"])
+        for site in report["sites"]:
+            self.assertIn("fpm_listener_shared_across_vhosts", site["blockers"])
+            self.assertIn("inflight_requests_unobserved", site["blockers"])
+            self.assertEqual(site["backends"][0]["observed_host_count"], 2)
 
-    def test_no_visible_php_upstream_fails_closed(self):
-        (self.nginx/"static.conf").write_text('server {server_name static.example.test; root /srv/static;}\n')
-        site=guard.inspect(self.nginx,self.pools,["static.example.test"])["sites"][0]
-        self.assertIn("no_fastcgi_upstream_visible_in_static_vhost",site["blockers"])
+    def test_distinct_servers_in_one_file_are_not_conflated(self):
+        (self.nginx / "shared.conf").write_text(
+            "server { server_name travel.example.test; fastcgi_pass unix:/run/php/www.sock; }\n"
+            "server { server_name visa.example.test; fastcgi_pass unix:/run/php/studio.sock; }\n"
+        )
+        mapping = audit.nginx_hosts(self.nginx)
+        self.assertEqual(mapping["travel.example.test"]["upstreams"], {"unix:/run/php/www.sock"})
+        self.assertEqual(mapping["visa.example.test"]["upstreams"], {"unix:/run/php/studio.sock"})
 
-    def test_missing_directory_fails_closed(self):
-        with self.assertRaisesRegex(ValueError,"nginx_directory_unavailable"):
-            guard.inspect(self.root/"absent",self.pools,["visa.example.test"])
+    def test_comments_and_quotes_are_not_phantom_hosts(self):
+        fixture = '# server {server_name hidden.example.test;}\n' \
+                  'server {set $test "server {not a block} # string";server_name real.example.test;}\n'
+        self.assertEqual(len(audit.nginx_server_blocks(fixture)), 1)
+        self.assertNotIn("hidden.example.test", audit.nginx_server_blocks(fixture)[0])
 
-    def test_invalid_duplicate_or_blank_hosts_rejected(self):
-        for invalid in ([],["visa.example.test","visa.example.test"],["/etc/passwd"]):
-            with self.assertRaisesRegex(ValueError,"requested_host_list_invalid"):
-                guard.inspect(self.nginx,self.pools,invalid)
+    def test_unclosed_server_block_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "nginx_server_block_not_closed"):
+            audit.nginx_server_blocks("server {server_name a.example.test;")
 
-    def test_sensitive_directives_are_never_exposed(self):
-        report=guard.inspect(self.nginx,self.pools,["travel.example.test"])
-        encoded=json.dumps(report)
-        self.assertNotIn("tls-secret.pem",encoded)
-        self.assertNotIn("private/root-only",encoded)
-        self.assertNotIn('password',encoded)
+    def test_dedicated_fpm_with_status_still_no_go(self):
+        r = audit.inspect(self.nginx, self.pools, ["studio.example.test"])
+        site = r["sites"][0]
+        self.assertTrue(site["backends"][0]["status_path_configured"])
+        self.assertTrue(site["backends"][0]["status_listener_configured"])
+        self.assertFalse(site["drain_verified"])
+        self.assertEqual(r["decision"], "NO_GO")
 
-    def test_cli_always_no_go(self):
-        output=StringIO()
-        with redirect_stdout(output):
-            code=guard.main(["--nginx-dir",str(self.nginx),"--fpm-dir",str(self.pools),
-                             "--hosts","studio.example.test"])
-        self.assertEqual(code,70)
-        self.assertEqual(json.loads(output.getvalue())["decision"],"NO_GO")
+    def test_status_config_commented_out_is_not_accepted(self):
+        pool = audit.fpm_pools(self.pools)["/run/php/www.sock"]
+        self.assertFalse(pool["status_path_configured"])
+        self.assertFalse(pool["status_listener_configured"])
+
+    def test_unresolved_nginx_include_flagged(self):
+        r = audit.inspect(self.nginx, self.pools, ["studio.example.test"])
+        self.assertIn("nginx_includes_not_expanded", r["sites"][0]["blockers"])
+
+    def test_missing_backend_never_becomes_verified(self):
+        (self.nginx / "static.conf").write_text(
+            "server {server_name static.example.test;root /srv/static;}"
+        )
+        site = audit.inspect(self.nginx, self.pools, ["static.example.test"])["sites"][0]
+        self.assertIn("fastcgi_upstream_not_visible", site["blockers"])
+        self.assertFalse(site["drain_verified"])
+
+    def test_duplicate_and_invalid_host_filters_rejected(self):
+        for hosts in ([], ["visa.example.test", "visa.example.test"], ["/etc/shadow"]):
+            with self.assertRaisesRegex(ValueError, "host_filter_invalid"):
+                audit.inspect(self.nginx, self.pools, hosts)
+
+    def test_missing_config_directory_rejected(self):
+        with self.assertRaisesRegex(ValueError, "nginx_dir_not_found"):
+            audit.inspect(self.nginx / "missing", self.pools, ["travel.example.test"])
+
+    def test_does_not_expose_sensitive_unrelated_config(self):
+        (self.nginx / "studio.conf").write_text(
+            'server {server_name studio.example.test;ssl_certificate_key /private/password-key.pem; '
+            'fastcgi_pass unix:/run/php/studio.sock;}'
+        )
+        report = audit.inspect(self.nginx, self.pools, ["studio.example.test"])
+        encoded = json.dumps(report)
+        self.assertNotIn("password-key", encoded)
+        self.assertNotIn("/private/", encoded)
+
+    def test_cli_always_exit_70_even_with_dedicated_pool(self):
+        out = StringIO()
+        with contextlib.redirect_stdout(out):
+            code = audit.main([
+                "--nginx-dir", str(self.nginx), "--fpm-dir", str(self.pools),
+                "--hosts", "studio.example.test"
+            ])
+        self.assertEqual(code, 70)
+        self.assertEqual(json.loads(out.getvalue())["decision"], "NO_GO")
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     unittest.main()
