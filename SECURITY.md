@@ -8,4 +8,6 @@ Do not include passwords, API keys, tokens, personal data, or production databas
 
 ## Supported version
 
-The current supported stable release is 10.29.0. Security fixes are published through the official release channel and announced to managed installations.
+As checked on 2026-10-10, the official stable update feed at <https://cms.vazin.online/releases/stable.json> reports **10.30.2**. This supersedes the stale 10.29.0 version reference in this document.
+
+Confirm the version and the corresponding signed release package through the official channel before installing or reporting an issue. A tag or entry on the GitHub Releases page alone does not confirm the currently deployed or supported build. Release readiness and rollback verification are separate from vulnerability disclosure.
