@@ -38,10 +38,26 @@ CREATE TABLE cms_update_feed_state(
 )
 SQL);
 
-$result=UpdateFeedService::refresh(
-    $pdo,
-    true
-);
+$fixture = [
+    'product' => 'VazinCMS',
+    'channel' => 'stable',
+    'version' => '10.30.3',
+    'released_at' => '2026-10-10T10:00:00Z',
+    'archive' => 'https://cms.vazin.online/releases/VazinCMS-10.30.3.zip',
+    'checksum' => 'https://cms.vazin.online/releases/VazinCMS-10.30.3.zip.sha256',
+    'signature' => 'https://cms.vazin.online/releases/VazinCMS-10.30.3.zip.sig',
+    'public_key' => 'https://cms.vazin.online/releases/vazincms-release-public.pem',
+    'minimum_current_version' => '10.29.0',
+    'release_notes' => 'https://cms.vazin.online/releases/VazinCMS-10.30.3.md',
+];
+// This fixture is for deterministic testing only; it is NOT a published feed.
+$fetch = static function (string $url) use ($fixture): string {
+    if ($url !== 'https://cms.vazin.online/releases/stable.json') {
+        throw new RuntimeException('Unexpected update-feed destination.');
+    }
+    return json_encode($fixture, JSON_THROW_ON_ERROR);
+};
+$result=UpdateFeedService::refresh($pdo, true, $fetch);
 
 if (($result['status'] ?? '') !== 'current') {
     throw new RuntimeException(
@@ -55,13 +71,13 @@ if (($result['current_version'] ?? '') !== '10.30.3') {
     );
 }
 
-if (($result['available_version'] ?? '') !== '10.30.2') {
+if (($result['available_version'] ?? '') !== '10.30.3') {
     throw new RuntimeException(
         'Feed version mismatch.'
     );
 }
 
-if (($result['minimum_current_version'] ?? '') !== '10.30.0') {
+if (($result['minimum_current_version'] ?? '') !== '10.29.0') {
     throw new RuntimeException(
         'Minimum version mismatch.'
     );
@@ -75,7 +91,7 @@ if (($stored['status'] ?? '') !== 'current') {
     );
 }
 
-if (($stored['available_version'] ?? '') !== '10.30.2') {
+if (($stored['available_version'] ?? '') !== '10.30.3') {
     throw new RuntimeException(
         'Persisted feed version mismatch.'
     );
