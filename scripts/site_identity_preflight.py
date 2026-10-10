@@ -26,6 +26,17 @@ NEEDED_HARDCODED = (
 
 
 def file_metadata(path: Path) -> dict:
+    # lstat(final) alone follows a symlink in any parent component.
+    # Refuse such a path without reading redirected file contents.
+    if not path.is_absolute():
+        return {"exists": False, "mode": None, "uid": None, "gid": None, "kind": "unsafe_relative_path"}
+    for parent in path.parents:
+        try:
+            entry = os.lstat(parent)
+        except OSError:
+            return {"exists": False, "mode": None, "uid": None, "gid": None, "kind": "parent_unavailable"}
+        if stat.S_ISLNK(entry.st_mode):
+            return {"exists": False, "mode": None, "uid": None, "gid": None, "kind": "symlinked_ancestor"}
     try:
         info = os.lstat(path)
     except OSError:

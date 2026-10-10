@@ -97,6 +97,20 @@ chown root:www-data
         self.assertEqual(site["observed"]["environment"]["kind"], "symlink")
         self.assertIn("missing_or_unsafe_environment", site["blockers"])
 
+    def test_symlinked_runtime_ancestor_is_rejected(self):
+        data = self.runtime / "travel-vazin-online" / "data"
+        actual = self.runtime / "real-travel-data"
+        data.rename(actual)
+        data.symlink_to(actual, target_is_directory=True)
+        observed = self.run_audit()["sites"][0]
+        self.assertEqual(observed["observed"]["storage"]["kind"], "symlinked_ancestor")
+        self.assertIn("missing_or_unsafe_storage", observed["blockers"])
+        self.assertIn("missing_or_unsafe_database", observed["blockers"])
+
+    def test_relative_scan_path_is_untrusted(self):
+        row = audit.file_metadata(Path("relative/.env"))
+        self.assertEqual(row["kind"], "unsafe_relative_path")
+
     def test_database_and_storage_owner_mismatch(self):
         original = audit.file_metadata
         def fake_metadata(path):
