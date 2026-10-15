@@ -121,3 +121,7 @@ VAZINCMS_SITE_FENCE_TOKEN_FILE=/etc/vazincms-fences/approved-site.token \
 ## OP-02.12 — ممیزی محدود خروجی پیکربندی روی دیسک از `nginx -T` (۱۵ اکتبر ۲۰۲۶)
 
 اسکریپت `scripts/readonly_nginx_effective_dump_audit.py` خروجی `nginx -T` را فقط در حافظه گرفته و بدون چاپ محتوای خام، IP، توکن و نام فایل‌ها به نشانه‌های ثابت پنج سایت کاهش می‌دهد. در S17 بررسی syntax موفق بود و در بلاک‌های شناسایی‌شده Visa/Travel همچنان Backend عمومی مشترک PHP-FPM دیده شد؛ هیچ مدرک مستقلی از Drain یا برابر بودن فایل‌های فعلی دیسک با پیکربندی Workerهای درحال‌اجرا به‌دست نیامد. تفسیر، محدودیت includeها و الزامات بعدی در `docs/NGINX-DISK-CONFIG-DUMP-AUDIT-FA.md` آمده است. `nginx -T` به‌هیچ‌وجه تأیید کامل مسیرها یا مجوز Production نیست؛ **NO-GO** باقی است.
+
+## OP-02.13 — آزمایش نسل و محافظت نوشتن پس از Fence (۱۵ اکتبر ۲۰۲۶)
+
+با دو Master PHP-FPM مستقل فقط در `/dev/shm`، یک درخواست قدیمی بدون محافظ پس از بستن Barrier همچنان توانست نشانهٔ مصنوعی بنویسد؛ در همان آزمایش، شرط نسل و قفل مشترک در نقطهٔ نوشتن، عملیات g2 پس از بازشدن g3 را رد کرد و عملیات محافظت‌شده پیش از تکمیل CLOSE به پایان رسید. این نمونه **کد قابل استقرار نیست** و مسیرهای SQL، پرداخت، وب‌هوک، cron و background jobs را پوشش نمی‌دهد. تمام نتیجه‌ها و شرایط توقف در `docs/FPM-PER-SITE-WRITE-BARRIER-REHEARSAL-FA.md` آمده‌اند. Worker Drain واقعی و تفکیک Travel/Visa هنوز تأیید نشده‌اند؛ **Production NO-GO**.
