@@ -11,6 +11,7 @@ import hashlib
 import os
 from pathlib import Path
 import re
+import secrets
 import stat
 import subprocess
 import sys
@@ -26,6 +27,13 @@ PUBLIC_PATHS = (
     "/assets/app.js", QA_PATH,
 )
 PUBLIC_PROBES = tuple(("GET", path) for path in PUBLIC_PATHS) + (("POST", QA_PATH),)
+CANARY_PREFIX = "/__vazin_fence_probe_"
+
+
+def current_public_probes() -> tuple[tuple[str, str], ...]:
+    # An unpredictable path detects a vhost that only fakes maintenance for
+    # known fixed probe URLs. Sampling is NOT proof for every route/method.
+    return PUBLIC_PROBES + (("GET", CANARY_PREFIX + secrets.token_hex(12)),)
 
 
 class FenceError(Exception):
@@ -73,7 +81,8 @@ def curl_request(
 ) -> tuple[int, str, str]:
     if HOST.fullmatch(host) is None or not 1 <= port <= 65535:
         raise FenceError("host_or_port_invalid")
-    if path not in PUBLIC_PATHS or method not in {"GET", "POST"}:
+    random_canary = re.fullmatch(r"/__vazin_fence_probe_[0-9a-f]{24}", path) is not None
+    if (path not in PUBLIC_PATHS and not random_canary) or method not in {"GET", "POST"}:
         raise FenceError("unsupported_fence_probe")
     if qa and (path != QA_PATH or method != "GET"):
         raise FenceError("qa_must_use_internal_health_get")
@@ -116,7 +125,7 @@ def check_fenced(host: str, port: int, token: str, *, ca_file: str | None = None
     # Verify all representative Nginx location classes; never regard a lone
     # /health=503 as proof the public site is closed.
     fingerprint = hashlib.sha256(token.encode("ascii")).hexdigest()
-    for method, path in PUBLIC_PROBES:
+    for method, path in current_public_probes():
         code, headers, _ = curl_request(
             host, port, token, qa=False, ca_file=ca_file, path=path, method=method
         )
