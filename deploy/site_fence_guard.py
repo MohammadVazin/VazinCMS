@@ -89,7 +89,10 @@ def curl_request(
     if method == "POST" and path != QA_PATH:
         raise FenceError("post_probes_must_use_inert_internal_route")
     command = [
-        "curl", "--silent", "--show-error", "--noproxy", "*",
+        # -q must be the very first curl argument: do not load ~/.curlrc.
+        # An ambient config could override TLS checks or add unwanted URLs,
+        # including on the private QA request carrying the fence token.
+        "curl", "-q", "--silent", "--show-error", "--noproxy", "*",
         "--connect-timeout", "3", "--max-time", "7",
         "--proto", "=https", "--max-redirs", "0",
         "--resolve", f"{host}:{port}:127.0.0.1",
