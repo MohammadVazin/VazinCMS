@@ -87,7 +87,7 @@ class SiteFenceGuardTests(unittest.TestCase):
             return self.response()
         with patch.object(guard, "curl_request", side_effect=reply) as observed:
             guard.check_qa_health(self.HOST, 443, self.TOKEN, "10.30.3")
-            self.assertEqual(observed.call_count, len(guard.PUBLIC_PROBES) * 2 + 1)
+            self.assertEqual(observed.call_count, (len(guard.PUBLIC_PROBES) + 1) * 2 + 1)
 
     def test_qa_health_fails_on_old_version(self):
         def reply(_host, _port, _token, *, qa, **kw):
@@ -136,6 +136,43 @@ class SiteFenceGuardTests(unittest.TestCase):
     def test_qa_only_uses_private_internal_health_path(self):
         with self.assertRaisesRegex(guard.FenceError, "qa_must_use_internal_health_get"):
             guard.curl_request(self.HOST, 443, self.TOKEN, qa=True, path="/health")
+
+    def test_randomized_public_canary_is_checked(self):
+        fixed = "0123456789abcdef01234567"
+        with patch.object(guard.secrets, "token_hex", return_value=fixed):
+            with patch.object(guard, "curl_request", return_value=self.response()) as requests:
+                guard.check_fenced(self.HOST, 443, self.TOKEN)
+        probes = [(call.kwargs["method"], call.kwargs["path"]) for call in requests.call_args_list]
+        self.assertEqual(probes, [*guard.PUBLIC_PROBES,
+                          ("GET", guard.CANARY_PREFIX + fixed)])
+
+    def test_static_allowlisted_fence_is_rejected_by_dynamic_canary(self):
+        def misconfigured(_host, _port, _token, *, qa, **kw):
+            if kw["path"].startswith(guard.CANARY_PREFIX):
+                return self.response(http=404)
+            return self.response()
+        with patch.object(guard, "curl_request", side_effect=misconfigured):
+            with self.assertRaisesRegex(guard.FenceError, "public_route_not_fenced"):
+                guard.check_fenced(self.HOST, 443, self.TOKEN)
+
+    def test_canary_changes_on_pre_and_post_qa_observation(self):
+        def mock_reply(_host, _port, _token, *, qa, **kw):
+            if qa:
+                return 200, "HTTP/2 200\\r\\n\\r\\n", '{"ok":true,"service":"VazinCMS","version":"10.30.3"}'
+            return self.response()
+        with patch.object(guard.secrets, "token_hex", side_effect=["a"*24, "b"*24]):
+            with patch.object(guard, "curl_request", side_effect=mock_reply) as requests:
+                guard.check_qa_health(self.HOST, 443, self.TOKEN, "10.30.3")
+        tested = [call.kwargs["path"] for call in requests.call_args_list
+                  if call.kwargs.get("path", "").startswith(guard.CANARY_PREFIX)]
+        self.assertEqual(tested, [guard.CANARY_PREFIX+"a"*24, guard.CANARY_PREFIX+"b"*24])
+
+    def test_canary_cannot_receive_qa_bypass_or_post(self):
+        path = guard.CANARY_PREFIX + "a"*24
+        with self.assertRaisesRegex(guard.FenceError, "qa_must_use_internal_health_get"):
+            guard.curl_request(self.HOST, 443, self.TOKEN, qa=True, path=path)
+        with self.assertRaisesRegex(guard.FenceError, "post_probes_must_use_inert_internal_route"):
+            guard.curl_request(self.HOST, 443, self.TOKEN, qa=False, path=path, method="POST")
 
     def test_curl_uses_verified_tls_loopback_no_follow(self):
         mock = type("Done", (), {"returncode":0, "stdout":"HTTP/2 503\r\n\r\nVAZIN_FENCE_HTTP_CODE:503\n", "stderr":""})()
