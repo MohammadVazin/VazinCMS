@@ -113,3 +113,7 @@ VAZINCMS_SITE_FENCE_TOKEN_FILE=/etc/vazincms-fences/approved-site.token \
 در یک Nginx کاملاً مستقل روی loopback، پیکربندی ناامن مبتنی بر `$remote_addr` با هدر جعلی `X-Forwarded-For: 127.0.0.1` و **توکن مصنوعیِ از پیش معلوم** برای مسیر QA پاسخ 200 داد، در حالی که شرط مبتنی بر transport peer همان درخواست را 503 کرد. استثنای `^~ /assets/`، regex فایل `.php` و یک مسیر exact ناشناخته نیز به‌ترتیب نشان دادند چگونه حتی Canary تصادفی می‌تواند برخی مسیرهای ناامن را کشف نکند. برای شرح دقیق روش، محدودیت‌های آزمایش و ماتریس رد/قبول، سند `docs/FENCE-REALIP-NGINX-ADVERSARIAL-FA.md` را ببینید.
 
 این تست هیچ ادعایی دربارهٔ پیکربندی واقعی Nginx/real_ip، TLS/SNI، FastCGI، Drain یا سایت‌های فعال ندارد. کنترل transport peer در نمونهٔ آزمایشگاهی **نباید** بدون ممیزی زنجیرهٔ reverse proxy و احراز هویت به Production کپی شود. **نتیجه: LAB PASS / Production NO-GO.**
+
+## OP-02.11 — ممیزی ساختاری فقط‌خواندنی Nginx/PHP-FPM روی S17 (۱۵ اکتبر ۲۰۲۶)
+
+در فایل‌های اصلی و includeهای داخلی پنج vhost هدف، مسیر QA و هدر Fence به‌صورت literal دیده نشد. Travel و Visa همچنان از سوکت PHP-FPM عمومی مشترک استفاده می‌کنند و در فایل pool آن، تنظیمات صریح pm.status یافت نشد. فایل‌های SSL/include بیرونی عمداً در ممیزی کمینه‌ساز داده خوانده نشدند؛ پیکربندی فعال workerها و همهٔ مسیرهای HTTP را نمی‌توان از regex و فایل‌های دیسک نتیجه گرفت. توضیح روش و جدول یافته‌های واقعی در `docs/READONLY-NGINX-FPM-INVENTORY-FA.md` قرار دارد. هیچ تغییر Production انجام نشده؛ نتیجه **NO-GO** است.
