@@ -186,6 +186,18 @@ class SiteFenceGuardTests(unittest.TestCase):
             self.assertNotIn("-k", args)
             self.assertNotIn("--insecure", args)
 
+    def test_curlrc_disabled_for_public_and_private_qa_requests(self):
+        mock = type("Done", (), {"returncode": 0, "stdout": "HTTP/2 503\r\n\r\nVAZIN_FENCE_HTTP_CODE:503\n", "stderr": ""})()
+        with patch.object(guard.subprocess, "run", return_value=mock) as run:
+            for private in (False, True):
+                guard.curl_request(self.HOST, 443, self.TOKEN, qa=private, path=guard.QA_PATH)
+                args = run.call_args.args[0]
+                self.assertEqual(args[:2], ["curl", "-q"], "disable ambient .curlrc as first curl option")
+                self.assertNotIn("--no-disable", args)
+                self.assertNotIn("--insecure", args)
+                self.assertNotIn("--location", args)
+                self.assertEqual(("--config" in args), private)
+
     def test_qa_token_is_sent_on_stdin_not_argv(self):
         mock = type("Done", (), {"returncode":0, "stdout":"HTTP/2 200\r\n\r\n{}\nVAZIN_FENCE_HTTP_CODE:200\n", "stderr":""})()
         with patch.object(guard.subprocess, "run", return_value=mock) as run:
