@@ -117,3 +117,7 @@ VAZINCMS_SITE_FENCE_TOKEN_FILE=/etc/vazincms-fences/approved-site.token \
 ## OP-02.11 — ممیزی ساختاری فقط‌خواندنی Nginx/PHP-FPM روی S17 (۱۵ اکتبر ۲۰۲۶)
 
 در فایل‌های اصلی و includeهای داخلی پنج vhost هدف، مسیر QA و هدر Fence به‌صورت literal دیده نشد. Travel و Visa همچنان از سوکت PHP-FPM عمومی مشترک استفاده می‌کنند و در فایل pool آن، تنظیمات صریح pm.status یافت نشد. فایل‌های SSL/include بیرونی عمداً در ممیزی کمینه‌ساز داده خوانده نشدند؛ پیکربندی فعال workerها و همهٔ مسیرهای HTTP را نمی‌توان از regex و فایل‌های دیسک نتیجه گرفت. توضیح روش و جدول یافته‌های واقعی در `docs/READONLY-NGINX-FPM-INVENTORY-FA.md` قرار دارد. هیچ تغییر Production انجام نشده؛ نتیجه **NO-GO** است.
+
+## OP-02.12 — ممیزی محدود خروجی پیکربندی روی دیسک از `nginx -T` (۱۵ اکتبر ۲۰۲۶)
+
+اسکریپت `scripts/readonly_nginx_effective_dump_audit.py` خروجی `nginx -T` را فقط در حافظه گرفته و بدون چاپ محتوای خام، IP، توکن و نام فایل‌ها به نشانه‌های ثابت پنج سایت کاهش می‌دهد. در S17 بررسی syntax موفق بود و در بلاک‌های شناسایی‌شده Visa/Travel همچنان Backend عمومی مشترک PHP-FPM دیده شد؛ هیچ مدرک مستقلی از Drain یا برابر بودن فایل‌های فعلی دیسک با پیکربندی Workerهای درحال‌اجرا به‌دست نیامد. تفسیر، محدودیت includeها و الزامات بعدی در `docs/NGINX-DISK-CONFIG-DUMP-AUDIT-FA.md` آمده است. `nginx -T` به‌هیچ‌وجه تأیید کامل مسیرها یا مجوز Production نیست؛ **NO-GO** باقی است.
