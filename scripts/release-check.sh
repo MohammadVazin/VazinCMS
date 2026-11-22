@@ -108,7 +108,11 @@ php "$ROOT/tests/site-domain-dns-challenge-contract.php"
 php "$ROOT/tests/site-domain-staging-transaction-contract.php"
 php "$ROOT/tests/site-tenant-create-atomic-contract.php"
 php "$ROOT/tests/site-release-external-signature-contract.php"
-php "$ROOT/tests/site-external-trust-path-contract.php"
+if [[ ${EUID:-1} -eq 0 ]]; then
+  php "$ROOT/tests/site-external-trust-path-contract.php"
+elif command -v sudo >/dev/null && sudo -n true 2>/dev/null; then
+  sudo "$(command -v php)" "$ROOT/tests/site-external-trust-path-contract.php"
+fi
 php "$ROOT/tests/site-multisite-signed-approval-boundary-contract.php"
 php "$ROOT/tests/site-staged-tenant-migrations-contract.php"
 php "$ROOT/tests/site-scoped-admin-surface-contract.php"
