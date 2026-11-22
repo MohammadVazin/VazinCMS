@@ -19,15 +19,15 @@ final class VazinIdSettings
             'issuer_url' => self::validIssuer((string) getenv('VAZIN_ID_URL')) ? rtrim((string) getenv('VAZIN_ID_URL'), '/') : '',
             'client_id' => trim((string) getenv('VAZIN_ID_CLIENT_ID')),
             'scopes' => self::DEFAULT_SCOPES,
-            'is_enabled' => 1,
+            'is_enabled' => 0,
             'auto_provision' => 1,
-            'source' => 'environment',
+            'source' => 'environment_unconfigured',
         ];
         try {
             $statement = Database::connection()->prepare('SELECT * FROM identity_providers WHERE provider=:provider');
             $statement->execute(['provider' => self::PROVIDER]);
             $row = $statement->fetch();
-            if (is_array($row) && (trim((string)$row['issuer_url']) !== '' || trim((string)$row['client_id']) !== '')) {
+            if (is_array($row)) {
                 return [
                     'provider' => self::PROVIDER,
                     'issuer_url' => rtrim((string)$row['issuer_url'], '/'),
@@ -39,6 +39,7 @@ final class VazinIdSettings
                 ];
             }
         } catch (Throwable) {
+            return array_replace($fallback, ['is_enabled' => 0, 'source' => 'database_unavailable']);
         }
         return $fallback;
     }

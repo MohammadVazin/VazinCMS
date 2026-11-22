@@ -1,0 +1,32 @@
+{
+  "name": "vazin-online/vazincms",
+  "description": "VazinCMS — Next-generation modular, capability-isolated Open-Core Content Management System (faster and safer than WordPress).",
+  "type": "project",
+  "license": "AGPL-3.0-or-later",
+  "homepage": "https://cms.vazin.online",
+  "require": {
+    "php": ">=8.2",
+    "ext-json": "*",
+    "ext-mbstring": "*",
+    "ext-openssl": "*",
+    "ext-pdo": "*"
+  },
+  "suggest": {
+    "ext-pdo_sqlite": "Zero-configuration standalone SQLite database support",
+    "ext-pdo_pgsql": "Enterprise PostgreSQL database support",
+    "ext-pdo_mysql": "MySQL / MariaDB database support",
+    "ext-curl": "Controlled outbound HTTPS integrations"
+  },
+  "autoload": {
+    "psr-4": {
+      "VazinCMS\\": "src/"
+    }
+  },
+  "bin": [
+    "bin/vazin"
+  ],
+  "scripts": {
+    "serve": "php -S 127.0.0.1:8080 -t public",
+    "test": "php tests/v11-modular-suite.php && php tests/smoke.php"
+  }
+}

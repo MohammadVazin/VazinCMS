@@ -18,6 +18,7 @@ final class EditorialWorkflow
 
     public static function transition(PDO $pdo,int $pageId,string $to,int $actorId,string $note=''): void
     {
+        SiteScopedOperationGate::denyUnscopedWrite($pdo,'editorial_transition');
         $q=$pdo->prepare('SELECT editorial_state FROM cms_pages WHERE id=:id');$q->execute(['id'=>$pageId]);$from=$q->fetchColumn();if($from===false)throw new RuntimeException('Content not found.');
         if(!in_array($to,self::TRANSITIONS[(string)$from]??[],true))throw new RuntimeException('Editorial transition not allowed.');
         $reviewed=in_array($to,['approved','rejected'],true);
@@ -27,6 +28,7 @@ final class EditorialWorkflow
 
     public static function dueScheduled(PDO $pdo): array
     {
+        SiteScopedOperationGate::denyUnscopedWrite($pdo,'scheduled_publish');
         return $pdo->query("SELECT id FROM cms_pages WHERE editorial_state='scheduled' AND published_at IS NOT NULL AND published_at<=CURRENT_TIMESTAMP AND trash_status='active'")->fetchAll(PDO::FETCH_COLUMN);
     }
 }

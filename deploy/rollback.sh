@@ -38,8 +38,8 @@ case "$SITE_ROOT" in
     ;;
 esac
 
-OLD_VERSION='10.30.1'
-NEW_VERSION='10.30.2'
+OLD_VERSION='10.30.2'
+NEW_VERSION='10.30.3'
 STATE_ROOT="/var/lib/vazincms-deploy/$SITE_KEY"
 HELPER="$STATE_ROOT/atomic-release-$NEW_VERSION.py"
 

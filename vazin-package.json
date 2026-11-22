@@ -2,29 +2,35 @@
   "schema": 2,
   "product": "VazinCMS",
   "type": "vazincms",
-  "version": "10.30.2",
+  "version": "11.0.0",
   "minimum_php": "8.2",
   "entrypoint": "deploy/install.sh",
-  "upgrade_only": true,
+  "upgrade_only": false,
+  "supports_fresh_install": true,
   "managed_site_upgrade_contract": "external-runtime-v1",
   "supports_preview": true,
   "supports_rollback": true,
   "compatible_targets": [
+    "standalone",
+    "docker",
     "managed-site"
   ],
   "minimum_vazin_online": "16.8.27",
-  "minimum_current_version": "10.30.0",
+  "minimum_current_version": "10.30.2",
   "supported_current_versions": [
-    "10.30.0"
+    "10.30.2",
+    "10.30.3",
+    "11.0.0"
   ],
   "release_channel": "stable",
-  "risk_level": "high",
-  "connector_version": "2.2.0",
-  "requires": {
-    "vazin_id": "5.4.3",
-    "vazinpay": "21.4.1"
+  "risk_level": "low",
+  "connector_version": "2.3.0",
+  "requires": {},
+  "optional_integrations": {
+    "vazin_id": ">=5.4.3",
+    "vazinpay": ">=21.4.1"
   },
   "release_notes": [
-    "Travel/Visa Phase 16: VazinPay webhook verification matches the public gateway's derived signing-key contract; commercial sales remain isolated."
+    "VazinCMS 11.0.0: Pure Micro-Kernel Open Core architecture, Capability-Based Module System (Schema v2), Isolated Module Database, Dynamic Content Engine, Universal Site Blueprints, Built-in Commerce/LMS/Booking/Forms/SEO modules, Page Cache, and Standalone CLI."
   ]
 }

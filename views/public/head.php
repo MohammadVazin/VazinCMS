@@ -90,10 +90,21 @@ try{$themeAsset=ThemeManager::assetUrl('theme.css');}catch(\Throwable){}
 <link rel="stylesheet" href="/assets/visa-cases-1050.css?v=<?=rawurlencode($appVersion)?>">
 <link rel="stylesheet" href="/assets/theme-90.css?v=<?=rawurlencode($appVersion)?>">
 <link rel="stylesheet" href="/assets/platform-1010.css?v=<?=rawurlencode($appVersion)?>">
+<link rel="stylesheet" href="/assets/content-columns-121.css?v=10.30.3-gallery-guard">
 <?php if($themeAsset!==''):?><link rel="stylesheet" href="<?=Security::e($themeAsset)?>?v=1.1.1"><?php endif;?>
 <?php if($customColor!==''):?><style>:root{--vz-primary:<?=Security::e($customColor)?>}</style><?php endif;?>
+<link rel="stylesheet" href="/assets/site-design-126.css?v=10.30.3">
+<link rel="stylesheet" href="/assets/template-builder-127.css?v=10.30.3">
+<link rel="stylesheet" href="/assets/site-canvas-128.css?v=10.30.3">
+<?php if(is_array($siteDesign??null)):?><style nonce="<?=Security::e(Security::cspNonce())?>">body[data-vz-design="1"]{<?=\VazinCMS\SiteDesign::variables($siteDesign['values'])?>}</style><?php endif;?>
 </head>
-<body class="travel-site profile-<?=Security::e($profile??'default')?>">
+<body class="travel-site profile-<?=Security::e($profile??'default')?>" <?php if(is_array($siteDesign??null)):?>data-vz-design="1" data-vz-design-header="<?=Security::e($siteDesign['values']['header'])?>"<?php endif;?>>
+<?php if(is_string($canvasHeaderHtml??null)):?>
+<?=$canvasHeaderHtml?>
+<?php else:?>
+<?php $customTemplateHeader=\VazinCMS\SiteTemplateBuilder::renderHeader($siteTemplate??null,$siteName,$publicMenu,$settings,$lang); if($customTemplateHeader!==null):?>
+<?=$customTemplateHeader?>
+<?php else:?>
 <header class="travel-header">
   <a class="travel-brand" href="/<?=$lang?>"><b><?=Security::e($siteName)?></b></a>
   <button class="mobile-menu" type="button" data-menu-toggle aria-label="<?=Security::e($copy['menu'])?>">☰</button>
@@ -103,4 +114,6 @@ try{$themeAsset=ThemeManager::assetUrl('theme.css');}catch(\Throwable){}
     <button class="theme-toggle" type="button" data-theme-toggle aria-label="<?=Security::e($copy['theme'])?>">◐</button>
   </div>
 </header>
+<?php endif;?>
+<?php endif;?>
 <main class="travel-main">

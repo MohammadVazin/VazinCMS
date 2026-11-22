@@ -47,6 +47,13 @@ try {
     $pdo = Database::connection();
     $pdo->exec((string)file_get_contents($root . '/database/schema-sqlite.sql'));
     $migrations = glob($root . '/database/migrations/*-sqlite.sql') ?: [];
+    // This legacy fixture intentionally tests PRE-10.31 global behavior.
+    // Tenant-scoped 10.31 migrations are separately tested end-to-end.
+    $migrations = array_values(array_filter($migrations,
+        static fn(string $file):bool => version_compare(
+            explode('-',basename($file))[0],'10.31.0','<'
+        )
+    ));
     usort($migrations, static fn(string $left, string $right): int => version_compare(
         explode('-', basename($left))[0],
         explode('-', basename($right))[0]
@@ -173,7 +180,7 @@ try {
         ->execute(['user'=>$ownerId,'hash'=>hash('sha256',session_id())]);
     $_SERVER['REQUEST_METHOD'] = 'POST';
     $_POST = [
-        '_csrf'=>Security::csrf(),'slug'=>'editor-contract','locale'=>'fa','title'=>'نوشتهٔ ساخته‌شده در ویرایشگر',
+        '_csrf'=>Security::csrf(),'draft_key'=>bin2hex(random_bytes(16)),'slug'=>'editor-contract','locale'=>'fa','title'=>'نوشتهٔ ساخته‌شده در ویرایشگر',
         'body'=>'متن کافی برای آزمون ذخیره‌سازی نوشته و اجرای hookهای ماژولار مدیریت محتوا.',
         'status'=>'published','content_type'=>'post','published_at'=>'2021-04-05T12:30',
         'meta_title'=>'عنوان آزمون SEO','meta_description'=>'توضیح آزمون SEO','canonical_url'=>'https://example.test/fa/page/editor-contract',

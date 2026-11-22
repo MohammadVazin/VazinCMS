@@ -3,13 +3,17 @@ declare(strict_types=1);
 
 namespace VazinCMS\Controllers;
 
-use VazinCMS\{Audit,Auth,ContentAdvisoryService,Database,EditorialPlanner,Security,View};
+use VazinCMS\{Audit,Auth,ContentAdvisoryService,Database,EditorialPlanner,Security,SiteContext,SiteScopeMode,View};
 
 final class SeoController
 {
     public function index(): void
     {
         $user = Auth::requireUser(['owner','admin']);
+        if (SiteScopeMode::active(Database::connection())) {
+            (new SiteScopedSeoController())->index();
+            return;
+        }
         $error = null; $message = null;
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             Security::verifyCsrf();
@@ -47,7 +51,16 @@ final class SeoController
         header('Content-Type: application/xml; charset=utf-8');
         header('Cache-Control: public, max-age=900');
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'HEAD') return;
-        $rows = Database::connection()->query("SELECT locale,slug,is_home,updated_at FROM cms_pages WHERE status='published' AND robots_index=1 ORDER BY locale,is_home DESC,id")->fetchAll();
+        $pdo=Database::connection();
+        if(SiteScopeMode::active($pdo)) {
+            $q=$pdo->prepare("SELECT locale,slug,is_home,updated_at FROM cms_pages " .
+                "WHERE site_id=:site AND status='published' AND robots_index=1 " .
+                "AND trash_status='active' ORDER BY locale,is_home DESC,id");
+            $q->execute(['site'=>SiteContext::id()]);
+            $rows=$q->fetchAll();
+        } else {
+            $rows=$pdo->query("SELECT locale,slug,is_home,updated_at FROM cms_pages WHERE status='published' AND robots_index=1 ORDER BY locale,is_home DESC,id")->fetchAll();
+        }
         echo '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
         echo '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
         $seen = [];
@@ -83,6 +96,11 @@ final class SeoController
         if (!is_array($parts) || !in_array(strtolower((string)($parts['scheme']??'')), ['http','https'], true)
             || empty($parts['host']) || isset($parts['user']) || isset($parts['pass']) || isset($parts['query']) || isset($parts['fragment'])) {
             return null;
+        }
+        if (SiteScopeMode::active(Database::connection())) {
+            $host=strtolower(trim((string)($_SERVER['HTTP_HOST']??'')));
+            $host=preg_replace('/:[0-9]+$/','',$host)??$host;
+            if ($host!=='' && $host!==strtolower((string)$parts['host']))return null;
         }
         return $url;
     }

@@ -138,38 +138,15 @@ expect(str_contains($localizedHead,'>Active</em>'),'Static ternary label was hid
 $head=(string)file_get_contents($root.'/views/partials/head.php');
 foreach(['identity_theme','identity_display_name','identity_picture_url','referrerpolicy="no-referrer"','localStorage.getItem']as$needle)expect(str_contains($head,$needle),'Identity UI rendering contract missing: '.$needle);
 
-// Public POST/error copy is selected before rendering, while submitted values
-// remain byte-identical dynamic data. Exercise the real validation method and
-// complete public request template for all four canonical locales.
-$travelController=new VazinCMS\Controllers\TravelOrderController();$validated=new ReflectionMethod($travelController,'validated');
 foreach(['fa'=>'rtl','en'=>'ltr','ru'=>'ltr','ar'=>'rtl']as$locale=>$direction){
- VazinCMS\UiLocale::boot($locale);$_POST=['service_type'=>'invalid','full_name'=>'x','phone'=>'1','email'=>'invalid','notes'=>'نام'];$errors=[];
- $validatedData=$validated->invokeArgs($travelController,[&$errors]);
- $expected=[VazinCMS\UiLocale::message('visa_service_invalid'),VazinCMS\UiLocale::message('visa_name_invalid'),VazinCMS\UiLocale::message('visa_phone_invalid'),VazinCMS\UiLocale::message('visa_email_invalid')];
- expect($errors===$expected,'Localized public POST validation mismatch: '.$locale);
- expect($validatedData['notes']==='نام','Submitted dynamic Persian data was translated: '.$locale);
- $scope=['locale'=>$locale,'settings'=>['enabled_locales'=>'["fa","en","ru","ar"]'],'siteName'=>'نام','profile'=>'travel','menu'=>[],'meta'=>['title'=>VazinCMS\UiLocale::message('visa_request_meta'),'description'=>VazinCMS\UiLocale::message('visa_meta_description')],'title'=>'','products'=>[],'selected'=>'','errors'=>$errors,'appVersion'=>VazinCMS\Version::current()];
- $html=VazinCMS\LocalizedTemplate::render([$root.'/views/public/head.php',$root.'/views/public/request.php',$root.'/views/public/foot.php'],$scope);$html=VazinCMS\UiLocale::html($html);
- expect(str_contains($html,'lang="'.$locale.'"')&&str_contains($html,'dir="'.$direction.'"'),'Public locale/dir is dishonest: '.$locale);
- expect(substr_count($html,'>نام<')>=2,'Dynamic brand sentinel was translated: '.$locale);
- foreach($expected as$message)expect(str_contains($html,VazinCMS\Security::e($message)),'Localized POST error was not rendered: '.$locale);
- if(in_array($locale,['en','ru'],true))expect(preg_match('/[\x{0600}-\x{06FF}]/u',str_replace(['نام','فارسی','العربية'],'',$html))!==1,'Persian static public copy leaked: '.$locale);
-
- $common=['locale'=>$locale,'settings'=>['enabled_locales'=>'["fa","en","ru","ar"]'],'siteName'=>'نام','profile'=>'travel','menu'=>[],'meta'=>[],'appVersion'=>VazinCMS\Version::current()];
+ VazinCMS\UiLocale::boot($locale);
+ $common=['locale'=>$locale,'settings'=>['enabled_locales'=>'["fa","en","ru","ar"]'],'siteName'=>'نام','profile'=>'corporate','menu'=>[],'meta'=>[],'appVersion'=>VazinCMS\Version::current()];
  $pay=VazinCMS\LocalizedTemplate::render([$root.'/views/public/head.php',$root.'/views/public/pay-error.php',$root.'/views/public/foot.php'],$common+['title'=>VazinCMS\UiLocale::message('pay_login_failed_title'),'message'=>VazinCMS\UiLocale::message('pay_login_failed')]);$pay=VazinCMS\UiLocale::html($pay);
  expect(str_contains($pay,VazinCMS\UiLocale::message('pay_login_failed')),'Pay error locale mismatch: '.$locale);
- VazinCMS\UiLocale::boot($locale);$account=VazinCMS\LocalizedTemplate::render([$root.'/views/public/head.php',$root.'/views/public/account.php',$root.'/views/public/foot.php'],$common+['error'=>VazinCMS\UiLocale::message('visa_tracking_invalid')]);$account=VazinCMS\UiLocale::html($account);
- expect(str_contains($account,VazinCMS\UiLocale::message('visa_tracking_invalid')),'Tracking error locale mismatch: '.$locale);
- VazinCMS\UiLocale::boot($locale);$eventMessage=VazinCMS\UiLocale::message('document_uploaded');$order=['public_id'=>'VZUNIT','full_name'=>'نام','product_title'=>'Dynamic Product','service_type'=>'visa','status'=>'documents_required','amount'=>100,'currency'=>'RUB','payment_status'=>'unpaid'];
-  $status=VazinCMS\LocalizedTemplate::render([$root.'/views/public/head.php',$root.'/views/public/order-status.php',$root.'/views/public/foot.php'],$common+['order'=>$order,'accessCode'=>'DYNAMICCODE','payUrl'=>'','payError'=>VazinCMS\UiLocale::message('visa_gateway_invalid'),'uploadError'=>VazinCMS\UiLocale::message('upload_file_invalid'),'caseEvents'=>[['created_at'=>'2026-01-01','new_status'=>null,'display_message'=>$eventMessage]],'alertOptIn'=>['status'=>'pending','url'=>'https://example.test/telegram-opt-in'],'caseDocuments'=>[]]);$status=VazinCMS\UiLocale::html($status);
- expect(str_contains($status,$eventMessage)&&str_contains($status,VazinCMS\UiLocale::message('upload_file_invalid')),'Visa status/upload locale mismatch: '.$locale);
- expect(substr_count($status,'نام')>=3,'Dynamic applicant/brand sentinel changed on status page: '.$locale);
- if(in_array($locale,['en','ru'],true))foreach([$pay,$account,$status]as$page)expect(preg_match('/[\x{0600}-\x{06FF}]/u',str_replace(['نام','فارسی','العربية'],'',$page))!==1,'Persian public error/status copy leaked: '.$locale);
+ if(in_array($locale,['en','ru'],true))expect(preg_match('/[\x{0600}-\x{06FF}]/u',str_replace(['نام','فارسی','العربية'],'',$pay))!==1,'Persian public error/status copy leaked: '.$locale);
 }
 $paySource=(string)file_get_contents($root.'/src/Controllers/PayController.php');
 expect(!str_contains($paySource,"'locale'=>'fa'")&&!str_contains($paySource,"\$result['data']['error']"),'Pay public error still forces Persian or exposes upstream text');
-$visaSource=(string)file_get_contents($root.'/src/Controllers/VisaCaseController.php');
-expect(!str_contains($visaSource,"visa_upload_error']")&&!str_contains($visaSource,'=$e->getMessage()'),'Visa upload still stores a raw exception for public rendering');
 
 // Exercise an actual SQLite unique violation through the same conflict mapper.
 $unique=new ReflectionMethod(VazinCMS\VazinIdentityLink::class,'uniqueGuard');

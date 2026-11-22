@@ -1,0 +1,41 @@
+/* Opt-in site-wide design; no saved config means no public style changes. */
+html:not([data-theme="dark"]) body[data-vz-design="1"],.vz-design-preview{
+ --vz-primary:var(--vz-design-primary);--vz-primary2:var(--vz-design-primary);
+ --vz-bg:var(--vz-design-bg);--vz-surface:var(--vz-design-surface);--vz-text:var(--vz-design-text);
+ background:var(--vz-bg);color:var(--vz-text);
+}
+body[data-vz-design="1"] .travel-main,.vz-design-preview .travel-main{width:min(var(--vz-design-width),calc(100% - 32px));margin-inline:auto}
+body[data-vz-design="1"] .public-card,.vz-design-preview .public-card{border-radius:var(--vz-design-radius);padding:var(--vz-design-spacing);background:var(--vz-surface);color:var(--vz-text);margin-block:24px}
+body[data-vz-design="1"] .content-body,.vz-design-preview .content-body{font-size:var(--vz-design-font);line-height:1.9}
+body[data-vz-design="1"] .content-body a,.vz-design-preview .content-body a{color:var(--vz-primary)}
+body[data-vz-design="1"] .cms-button,.vz-design-preview .vz-design-sample-button{background:var(--vz-primary);color:#fff;border:0;border-radius:var(--vz-design-radius);padding:12px 20px;font:inherit}
+body[data-vz-design="1"][data-vz-design-header="centered"] .travel-header,.vz-design-preview[data-vz-design-header="centered"] .travel-header{justify-content:center;flex-wrap:wrap;gap:14px;text-align:center}
+body[data-vz-design="1"][data-vz-design-header="centered"] .travel-brand,.vz-design-preview[data-vz-design-header="centered"] .travel-brand{flex-basis:100%;margin-inline:0}
+body[data-vz-design="1"] .travel-header{padding-inline:max(16px,calc((100% - var(--vz-design-width))/2))}
+.vz-design-workspace{display:grid;grid-template-columns:minmax(270px,.85fr) minmax(300px,1.15fr);align-items:start;gap:24px}
+.vz-design-workspace>*{min-width:0}
+#site-design-form fieldset{border:0;border-top:1px solid var(--cms-w-line,#d8dee8);padding:20px 0;margin:0;min-width:0}
+#site-design-form legend{font-weight:700;padding-inline-end:10px}
+.vz-design-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+#site-design-form label{display:flex;flex-direction:column;gap:6px;min-width:0}
+#site-design-form input,#site-design-form select{box-sizing:border-box;width:100%;min-width:0;min-height:44px}
+#site-design-form input[type="color"]{padding:4px;cursor:pointer}
+#site-design-form output{font-family:monospace;direction:ltr;text-align:start;font-size:.85rem}
+.vz-design-presets,.vz-design-actions,.vz-design-viewport-buttons{display:flex;flex-wrap:wrap;gap:10px;margin-block:12px}
+#site-design-form button,.vz-design-viewport-buttons button{min-height:44px;padding:10px 14px;border-radius:10px;max-width:100%;white-space:normal}
+.vz-design-actions button:not([value="save"]){background:transparent;color:inherit;border:1px solid var(--cms-w-line,#c6cfdb)}
+.vz-design-workspace button:focus-visible,.vz-design-workspace input:focus-visible,.vz-design-workspace select:focus-visible{outline:3px solid #3156d3;outline-offset:3px}
+.vz-design-notice{padding:14px;background:var(--cms-w-soft,#eef3fc);border-radius:12px;line-height:1.9}
+.vz-design-preview-panel{position:sticky;top:18px}
+.vz-design-preview-panel h2{margin-block:4px 12px}
+.vz-design-preview{box-sizing:border-box;overflow-wrap:anywhere;border:1px solid #cad1dc;border-radius:14px;overflow:hidden;width:100%;font-family:Vazirmatn,Tahoma,sans-serif;direction:inherit;box-shadow:0 12px 30px #1830580f}
+.vz-design-preview .travel-header{display:flex;align-items:center;gap:14px;padding:18px;border-bottom:1px solid #94a3b833}
+.vz-design-preview .travel-brand{margin-inline-end:auto;color:var(--vz-text);font-size:1.1rem}
+.vz-design-preview nav{display:flex;gap:12px;flex-wrap:wrap;font-size:.85rem}
+.vz-design-preview .public-card h2{font-size:1.5rem;line-height:1.7;margin-top:0}
+.vz-design-preview .public-card p{margin-block:12px}
+.vz-design-preview-footer{padding:16px;text-align:center;border-top:1px solid #94a3b833;font-size:.8rem}
+.vz-design-preview[data-preview-size="mobile"]{max-width:360px;margin-inline:auto}
+.vz-design-preview[data-preview-size="mobile"] .travel-header{flex-wrap:wrap}
+@media(max-width:1000px){.vz-design-workspace{grid-template-columns:minmax(0,1fr)}.vz-design-preview-panel{position:static}}
+@media(max-width:480px){.vz-design-controls{grid-template-columns:minmax(0,1fr)}.vz-design-preview .travel-header{flex-wrap:wrap}.vz-design-preview .travel-main{width:calc(100% - 20px)}.vz-design-preview .public-card{padding:16px}}

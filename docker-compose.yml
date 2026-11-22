@@ -1,0 +1,19 @@
+services:
+  vazincms:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      APP_ENV: production
+      APP_URL: http://localhost:8080
+      DB_CONNECTION: sqlite
+      SESSION_SECURE: "false"
+      PAGE_CACHE_ENABLED: "true"
+    volumes:
+      - vazincms_storage:/app/storage
+      - vazincms_uploads:/app/public/uploads
+    restart: unless-stopped
+
+volumes:
+  vazincms_storage:
+  vazincms_uploads:

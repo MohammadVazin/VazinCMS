@@ -39,15 +39,17 @@ try {
 
     ExtensionManager::reset();
     $extensions = ExtensionManager::all();
-    $check(count($extensions) === 9, 'bundled extension discovery failed');
-    $check(count(ExtensionManager::activeModules()) === 8, 'bundled modules are not active');
+    $check(count($extensions) === 11, 'bundled extension discovery failed');
+    $check(count(ExtensionManager::activeModules()) === 10, 'bundled modules are not active');
     $check(ExtensionManager::isActive('theme', 'vazin-default'), 'bundled theme is not active');
     $navigation=ExtensionManager::adminNavigation();
-    $check(count($navigation) === 13, 'module-owned admin navigation failed');
+    $check(count($navigation) === 11, 'module-owned admin navigation failed');
     $check(in_array('/admin/content-migration',array_column($navigation,'path'),true),'Content migration navigation missing');
+    $check(in_array('/admin/commerce',array_column($navigation,'path'),true),'Commerce navigation missing');
+    $check(in_array('/admin/lms',array_column($navigation,'path'),true),'LMS navigation missing');
+    $check(in_array('/admin/booking',array_column($navigation,'path'),true),'Booking navigation missing');
+    $check(in_array('/admin/forms',array_column($navigation,'path'),true),'Forms navigation missing');
     $check(in_array('/admin/telegram/assistant',array_column($navigation,'path'),true),'Telegram assistant navigation missing');
-    $check(in_array('/admin/travel-alerts',array_column($navigation,'path'),true),'Travel/Visa Telegram alert navigation missing');
-    $check(in_array('/admin/agency-inquiries',array_column($navigation,'path'),true),'Travel agency inbox navigation missing');
 
     $moduleRoot = $runtime . '/extensions/modules/contract-module';
     $write($moduleRoot . '/vazin-extension.json', json_encode([
@@ -63,6 +65,7 @@ return static function(ModuleContext $module):void{
     $module->on('contract.event',static function(array $payload):void{$GLOBALS['vazincms_contract_hook']=$payload['value']??null;});
 };
 PHP;
+    $moduleBootstrap=str_replace('<?php', "<?php file_put_contents('{$runtime}/runtime-module-executed','BAD');", $moduleBootstrap);
     $write($moduleRoot . '/bootstrap.php', $moduleBootstrap);
     $write($moduleRoot . '/assets/module.css', '.contract-module{display:block}');
 
@@ -72,43 +75,77 @@ PHP;
         'version' => '1.0.0', 'requires' => ['php' => '>=8.2.0', 'vazincms' => '>=10.8.0', 'extensions' => []],
         'views' => ['head' => 'views/head.php', 'foot' => 'views/foot.php'], 'default_status' => 'inactive',
     ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
-    $write($themeRoot . '/views/head.php', '<!doctype html><html><body><main>');
+    $write($themeRoot . '/views/head.php', "<?php file_put_contents('{$runtime}/runtime-theme-executed','BAD'); ?><!doctype html><html><body><main>");
     $write($themeRoot . '/views/foot.php', '</main></body></html>');
 
     ExtensionManager::reset();
     ExtensionManager::synchronize();
-    ExtensionManager::activate('contract-module');
-    ob_start();
-    $dispatched = ExtensionRuntime::dispatch('GET', '/extension-contract');
-    $output = (string) ob_get_clean();
-    $check($dispatched && $output === 'contract-ok', 'custom module route was not dispatched');
-    ExtensionRuntime::emit('contract.event', ['value' => 'hook-ok']);
-    $check(($GLOBALS['vazincms_contract_hook'] ?? null) === 'hook-ok', 'custom module hook was not dispatched');
-    $check(ExtensionAsset::url('module','contract-module','module.css')==='/module-assets/contract-module/module.css','module asset URL failed');
-    ob_start();ExtensionAsset::serve('module','contract-module','module.css');$assetOutput=(string)ob_get_clean();
-    $check(str_contains($assetOutput,'.contract-module'),'module asset serving failed');
-    ExtensionManager::deactivate('contract-module');
-    $check(!ExtensionRuntime::dispatch('GET', '/extension-contract'), 'deactivated module still owns its route');
-    ExtensionManager::activate('contract-module');
-    $write($moduleRoot . '/bootstrap.php', $moduleBootstrap . "\n// changed outside installer\n");
+    // Candidate isolation hard gate: previously these runtime module/theme
+    // fixtures were activated and their PHP executed in the CMS process.
+    // They must now remain inert and require a separately signed isolated
+    // control-plane execution path instead.
+    $blockedActivation=static function(string $key):void {
+        try { ExtensionManager::activate($key); }
+        catch(RuntimeException $e){
+            if($e->getMessage()==='plugin_inprocess_activation_denied')return;
+            throw $e;
+        }
+        throw new RuntimeException('runtime package activated in CMS process');
+    };
+    $blockedActivation('contract-module');
+    $blockedActivation('contract-theme');
+    $check(!ExtensionManager::isActive('module','contract-module'),
+           'runtime module appeared active despite denial');
+    $check(!ExtensionManager::isActive('theme','contract-theme'),
+           'runtime PHP theme appeared active despite denial');
+    $manifest=VazinCMS\ExtensionManifest::fromDirectory($moduleRoot);
+    try{
+        ExtensionRuntime::validateModule($manifest);
+        throw new RuntimeException('runtime bootstrap was validated in process');
+    }catch(RuntimeException $e){
+        $check($e->getMessage()==='plugin_inprocess_untrusted_package_denied',
+               'unexpected in-process validation denial');
+    }
+    $check(!ExtensionRuntime::dispatch('GET','/extension-contract'),
+           'runtime route executed in CMS');
+    $check(ExtensionRuntime::emit('contract.event',['value'=>'blocked'])===[],
+           'runtime hook executed in CMS');
+    $check(!isset($GLOBALS['vazincms_contract_hook']),
+           'runtime hook side effect executed');
+    $check(ThemeManager::previewTheme('contract-theme')===null,
+           'unsafe runtime theme previewed');
+    $templates=ThemeManager::templates('cms-page');
+    $check(!str_contains(implode('|',$templates['paths']),'contract-theme'),
+           'unsafe runtime PHP theme evaluated');
+    $check(str_contains(str_replace('\\','/', $templates['paths'][1]),'/views/public/'),
+           'core trusted theme fallback unavailable');
+    // Model a preexisting active runtime row (there is at least one such
+    // row in the real S17 registry, observed READ-ONLY). Even a legacy
+    // active bit must not permit a bootstrap, hook, route or PHP theme.
+    $pdo->exec("UPDATE cms_extensions SET status='active' WHERE extension_key IN('contract-module','contract-theme')");
+    $pdo->exec("UPDATE cms_extensions SET status='inactive' WHERE extension_key='vazin-default'");
     ExtensionManager::reset();
-    $previousErrorLog=(string)ini_get('error_log');ini_set('error_log',$runtime.'/expected-extension-error.log');
-    try{$tamperedDispatched=ExtensionRuntime::dispatch('GET', '/extension-contract');}finally{ini_set('error_log',$previousErrorLog);}
-    $check(!$tamperedDispatched, 'tampered module was executed');
-    $check((string)$pdo->query("SELECT status FROM cms_extensions WHERE extension_key='contract-module'")->fetchColumn()==='broken', 'tampered module was not quarantined');
-
-    ExtensionManager::activate('contract-theme');
-    $templates = ThemeManager::templates('cms-page');
-    $check(str_contains($templates['paths'][0], 'contract-theme'), 'custom theme head was not selected');
-    $check(str_contains($templates['paths'][2], 'contract-theme'), 'custom theme foot was not selected');
-    $check(str_contains(str_replace('\\', '/', $templates['paths'][1]), '/views/public/'), 'theme fallback hierarchy failed');
-    UiLocale::boot('fa');
-    $html = UiLocale::html(LocalizedTemplate::render($templates['paths'], [
-        'locale' => 'fa', 'page' => null, 'siteName' => 'Contract Site', 'appVersion' => '10.9.0',
-        'settings' => [], 'profile' => 'corporate', 'meta' => [], 'menu' => [], 'viewName' => 'cms-page',
-    ], $templates['allowed_roots']));
-    $check(str_contains($html, 'Contract Site'), 'theme and core view composition failed');
+    $check(!ExtensionRuntime::dispatch('GET','/extension-contract'),
+           'preexisting active runtime module dispatched');
+    $check(ExtensionRuntime::emit('contract.event',['value'=>'blocked'])===[],
+           'preexisting active runtime hook dispatched');
+    $check(ExtensionManager::activeExtension('module','contract-module')===null,
+           'runtime module active endpoint not rejected');
+    $check(!ExtensionManager::isActive('module','contract-module'),
+           'runtime active status bypassed package policy');
+    $check(ExtensionManager::activeTheme()===null,
+           'active runtime PHP theme admitted');
+    $fallback=ThemeManager::templates('cms-page');
+    $check(!str_contains(implode('|',$fallback['paths']),'contract-theme'),
+           'untrusted theme path reached renderer');
+    $check(!is_file($runtime.'/runtime-module-executed') &&
+           !is_file($runtime.'/runtime-theme-executed'),
+           'preexisting runtime PHP executed in CMS');
+    $pdo->exec("UPDATE cms_extensions SET status='inactive' WHERE extension_key IN('contract-module','contract-theme')");
+    $pdo->exec("UPDATE cms_extensions SET status='active' WHERE extension_key='vazin-default'");
+    ExtensionManager::reset();
     ExtensionManager::activate('vazin-default');
+    echo "Extension in-process runtime packages denied; bundled modules remain available\n";
 
     ExtensionManager::archive('contract-module');
     ExtensionManager::archive('contract-theme');
@@ -122,7 +159,7 @@ PHP;
             'version' => '1.0.0', 'requires' => ['php' => '>=8.2.0', 'vazincms' => '>=10.8.0', 'extensions' => []],
             'bootstrap' => 'bootstrap.php', 'default_status' => 'inactive',
         ], JSON_UNESCAPED_SLASHES));
-        $zip->addFromString('archive-module/bootstrap.php', "<?php return static function(\\VazinCMS\\ModuleContext \$module):void{};\n");
+        $zip->addFromString('archive-module/bootstrap.php', "<?php file_put_contents('{$runtime}/install-payload-executed','UNTRUSTED'); return static function(\\VazinCMS\\ModuleContext \$module):void{};\n");
         $zip->close();
         $installed = ExtensionManager::installArchive($archive);
         $check($installed['status'] === 'inactive', 'zip package must install inactive');
@@ -134,10 +171,12 @@ PHP;
             'version' => '1.1.0', 'requires' => ['php' => '>=8.2.0', 'vazincms' => '>=10.8.0', 'extensions' => []],
             'bootstrap' => 'bootstrap.php', 'default_status' => 'inactive',
         ], JSON_UNESCAPED_SLASHES));
-        $zip->addFromString('archive-module/bootstrap.php', "<?php return static function(\\VazinCMS\\ModuleContext \$module):void{};\n");
+        $zip->addFromString('archive-module/bootstrap.php', "<?php file_put_contents('{$runtime}/install-payload-executed','UNTRUSTED'); return static function(\\VazinCMS\\ModuleContext \$module):void{};\n");
         $zip->close();
         $upgraded = ExtensionManager::installArchive($upgrade);
         $check($upgraded['version'] === '1.1.0' && $upgraded['status'] === 'inactive', 'atomic extension upgrade failed');
+        $check(!is_file($runtime.'/install-payload-executed'),
+            'untrusted uploaded PHP was executed during static package installation');
         $check((glob($runtime.'/extensions/.trash/module-archive-module-1.0.0-*')?:[])!==[], 'previous extension version was not retained');
         ExtensionManager::archive('archive-module');
         $expectedRemoved++;

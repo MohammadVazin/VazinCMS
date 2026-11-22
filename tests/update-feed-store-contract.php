@@ -2,6 +2,27 @@
 
 declare(strict_types=1);
 
+namespace VazinCMS {
+    // CI requires network isolation: emulate only the official URL as a test fixture.
+    // This namespace override exists exclusively in this test PHP process.
+    function file_get_contents($filename, ...$options) {
+        if ($filename === 'https://cms.vazin.online/releases/stable.json') {
+            return json_encode([
+                'product'=>'VazinCMS','channel'=>'stable','version'=>'10.30.2',
+                'released_at'=>'2026-09-20T23:16:06Z',
+                'archive'=>'https://cms.vazin.online/releases/VazinCMS-10.30.2.zip',
+                'checksum'=>'https://cms.vazin.online/releases/VazinCMS-10.30.2.zip.sha256',
+                'signature'=>'https://cms.vazin.online/releases/VazinCMS-10.30.2.zip.sig',
+                'public_key'=>'https://cms.vazin.online/releases/vazincms-release-public.pem',
+                'minimum_current_version'=>'10.30.0',
+                'release_notes'=>'https://cms.vazin.online/releases/VazinCMS-10.30.2-release-notes.md',
+            ], JSON_THROW_ON_ERROR);
+        }
+        return \file_get_contents($filename, ...$options);
+    }
+}
+namespace {
+
 require dirname(__DIR__) . '/src/bootstrap.php';
 
 use VazinCMS\UpdateFeedService;
@@ -49,7 +70,7 @@ if (($result['status'] ?? '') !== 'current') {
     );
 }
 
-if (($result['current_version'] ?? '') !== '10.30.2') {
+if (($result['current_version'] ?? '') !== \VazinCMS\Version::current()) {
     throw new RuntimeException(
         'Current version mismatch.'
     );
@@ -82,3 +103,4 @@ if (($stored['available_version'] ?? '') !== '10.30.2') {
 }
 
 echo "update-feed-store-contract: OK\n";
+}

@@ -8,7 +8,9 @@ final class Scheduler
     public static function types():array{return ['webhook_queue'=>'پردازش صف Webhook','notification_queue'=>'پردازش اعلان‌ها','service_expiry'=>'بررسی سررسید سرویس‌ها','audit_cleanup'=>'پاک‌سازی رویدادهای قدیمی','content_publish'=>'انتشار محتوای زمان‌بندی‌شده','trust_scan'=>'اسکن اعتماد و Advisory بسته‌ها','update_feed'=>'بررسی فید رسمی به‌روزرسانی'];}
     public static function runDue(?int $onlyId=null):array
     {
-        $pdo=Database::connection();$where=$onlyId?'id=:id':"is_active=1 AND next_run_at<=CURRENT_TIMESTAMP";$s=$pdo->prepare('SELECT * FROM scheduled_tasks WHERE '.$where.' ORDER BY next_run_at ASC LIMIT 25');$s->execute($onlyId?['id'=>$onlyId]:[]);$result=[];
+        $pdo=Database::connection();
+        SiteScopedOperationGate::denyUnscopedWrite($pdo,'legacy_scheduler');
+        $where=$onlyId?'id=:id':"is_active=1 AND next_run_at<=CURRENT_TIMESTAMP";$s=$pdo->prepare('SELECT * FROM scheduled_tasks WHERE '.$where.' ORDER BY next_run_at ASC LIMIT 25');$s->execute($onlyId?['id'=>$onlyId]:[]);$result=[];
         foreach($s->fetchAll() as $task)$result[]=self::run($pdo,$task,$onlyId!==null);return $result;
     }
     private static function run(PDO $pdo,array $task,bool $manual):array
@@ -42,6 +44,7 @@ final class Scheduler
 
     private static function publishScheduled(PDO $pdo):string
     {
+        SiteScopedOperationGate::denyUnscopedWrite($pdo,'scheduled_publish');
         $ids=EditorialWorkflow::dueScheduled($pdo);$count=0;
         foreach($ids as$id){$pdo->prepare("UPDATE cms_pages SET editorial_state='published',status='published',updated_at=CURRENT_TIMESTAMP WHERE id=:id AND editorial_state='scheduled'")->execute(['id'=>$id]);SearchIndex::refreshPage($pdo,(int)$id);$count++;}
         return $count.' محتوای زمان‌بندی‌شده منتشر شد.';

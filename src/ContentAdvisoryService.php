@@ -10,6 +10,19 @@ final class ContentAdvisoryService
     public static function analyzePage(int $pageId, bool $notify = true): array
     {
         $pdo = Database::connection();
+        if (SiteScopeMode::active($pdo)) {
+            // A CMS save hook may analyze its own site only when an
+            // authenticated, explicitly site-authorized editor exists.
+            // Background/anonymous hooks fail closed; notifications are
+            // disabled in SiteScopedSeoService to prevent data disclosure.
+            $user=Auth::user();
+            if (!is_array($user) || (int)($user['id']??0)<1) {
+                throw new RuntimeException('tenant_access_denied');
+            }
+            return (new SiteScopedSeoService($pdo,SiteContext::id()))
+                ->analyzePage((int)$user['id'],$pageId);
+        }
+        SiteScopedOperationGate::denyUnscopedWrite($pdo,'seo_analysis');
         $query = $pdo->prepare('SELECT * FROM cms_pages WHERE id=:id');
         $query->execute(['id'=>$pageId]);
         $page = $query->fetch();
@@ -67,6 +80,7 @@ final class ContentAdvisoryService
 
     public static function analyzeAll(int $limit = 100): array
     {
+        SiteScopedOperationGate::denyUnscopedWrite(Database::connection(),'seo_analysis');
         $limit = max(1,min(1000,$limit));
         $ids = Database::connection()->query('SELECT id FROM cms_pages ORDER BY updated_at DESC,id DESC LIMIT '.$limit)->fetchAll();
         $result = ['analyzed'=>0,'failed'=>0,'new_notices'=>0];
@@ -82,6 +96,7 @@ final class ContentAdvisoryService
 
     public static function setStatus(int $id, string $status): void
     {
+        SiteScopedOperationGate::denyUnscopedWrite(Database::connection(),'seo_analysis');
         if ($id < 1 || !in_array($status,['acknowledged','resolved','ignored'],true)) throw new RuntimeException('وضعیت اخطار معتبر نیست.');
         $statement = Database::connection()->prepare('UPDATE content_advisories SET status=:status,resolved_at=CASE WHEN :status2 IN (\'resolved\',\'ignored\') THEN CURRENT_TIMESTAMP ELSE NULL END WHERE id=:id');
         $statement->execute(['status'=>$status,'status2'=>$status,'id'=>$id]);
@@ -90,8 +105,22 @@ final class ContentAdvisoryService
 
     public static function openCount(): int
     {
-        try { return (int)Database::connection()->query("SELECT COUNT(*) FROM content_advisories WHERE status='open'")->fetchColumn(); }
-        catch (\Throwable) { return 0; }
+        try {
+            $pdo=Database::connection();
+            if (SiteScopeMode::active($pdo)) {
+                // Header count must NEVER expose global legacy advisories
+                // when rendering a tenant-scoped admin workspace.
+                $query=$pdo->prepare(
+                    "SELECT COUNT(*) FROM cms_site_content_advisories " .
+                    "WHERE site_id=:site AND status='open'"
+                );
+                $query->execute(['site'=>SiteContext::id()]);
+                return (int)$query->fetchColumn();
+            }
+            return (int)$pdo->query(
+                "SELECT COUNT(*) FROM content_advisories WHERE status='open'"
+            )->fetchColumn();
+        } catch (\Throwable) { return 0; }
     }
 
     private static function adminNotification(array $notice): void

@@ -5,17 +5,14 @@
   "locale": "fa",
   "direction": "rtl",
   "entrypoints": [
-    "public/qa/ui/travel-platform-fa.html",
+    "public/qa/ui/cms-corporate-fa.html",
     "public/qa/ui/content-migration-fa.html",
-    "public/qa/ui/visa-platform-fa.html"
+    "public/qa/ui/cms-commerce-fa.html"
   ],
   "stylesheets": [
-    "public/assets/travel-40.css",
     "public/assets/theme-90.css",
-    "public/assets/visa-checkout-1041.css",
-    "public/assets/visa-selector-1042.css",
-    "public/assets/visa-cases-1050.css",
-    "public/assets/platform-1010.css"
+    "public/assets/platform-1010.css",
+    "public/assets/admin-workspace-v1.css"
   ],
   "font": {
     "family": "Vazirmatn",

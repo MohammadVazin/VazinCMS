@@ -16,7 +16,11 @@ $cleanup=static function(string$path)use(&$cleanup):void{if(!is_dir($path))retur
 
 try{
     $pdo=Database::connection();$pdo->exec((string)file_get_contents($root.'/database/schema-sqlite.sql'));
-    $migrations=glob($root.'/database/migrations/*-sqlite.sql')?:[];usort($migrations,static fn(string$a,string$b):int=>version_compare(explode('-',basename($a))[0],explode('-',basename($b))[0]));
+    $migrations=glob($root.'/database/migrations/*-sqlite.sql')?:[];
+    // Legacy single-site fixture; tenant schema 10.31 has separate E2E tests.
+    $migrations=array_values(array_filter($migrations,
+        static fn(string $f):bool=>version_compare(explode('-',basename($f))[0],'10.31.0','<')));
+    usort($migrations,static fn(string$a,string$b):int=>version_compare(explode('-',basename($a))[0],explode('-',basename($b))[0]));
     foreach($migrations as$migration){$version=explode('-',basename($migration))[0];$seen=$pdo->prepare('SELECT 1 FROM schema_migrations WHERE version=:version');$seen->execute(['version'=>$version]);if(!$seen->fetchColumn())$pdo->exec((string)file_get_contents($migration));}
     $check((bool)$pdo->query("SELECT 1 FROM schema_migrations WHERE version='10.9.1'")->fetchColumn(),'10.9.1 migration marker missing');
 

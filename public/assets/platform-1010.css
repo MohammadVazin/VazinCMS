@@ -85,7 +85,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .application-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
 .application-fields .wide { grid-column:1 / -1; }
 .application-fields label,.platform-form-grid label { display:grid; gap:8px; color:var(--v-ui-text); font-weight:700; }
-.application-fields input,.application-fields select,.application-fields textarea,.platform-form-grid input,.platform-form-grid select,.platform-form-grid textarea { width:100%; min-height:46px; padding:10px 12px; border:1px solid var(--v-ui-border); border-radius:12px; background:var(--v-ui-surface); }
+.application-fields input,.application-fields select,.application-fields textarea,.platform-form-grid input,.platform-form-grid select,.platform-form-grid textarea { box-sizing:border-box; min-width:0; max-width:100%; width:100%; min-height:46px; padding:10px 12px; border:1px solid var(--v-ui-border); border-radius:12px; background:var(--v-ui-surface); }
 .application-fields textarea,.platform-form-grid textarea { min-height:110px; resize:vertical; }
 .application-consent { display:flex; align-items:flex-start; gap:10px; color:var(--v-ui-muted); line-height:1.8; }
 .application-consent input { width:18px; height:18px; margin-top:5px; }

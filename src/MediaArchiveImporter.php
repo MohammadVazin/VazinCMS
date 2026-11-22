@@ -20,6 +20,7 @@ final class MediaArchiveImporter
     /** @return array{imported:int,skipped:int,duplicates:int} */
     public static function import(string $archive, PDO $pdo, int $actorId): array
     {
+        SiteScopedOperationGate::denyUnscopedWrite($pdo,'media_archive');
         if (!class_exists(ZipArchive::class)) throw new RuntimeException('پشتیبانی ZIP روی سرور فعال نیست.');
         $archive = realpath($archive) ?: '';
         $size = $archive !== '' && is_file($archive) && !is_link($archive) ? filesize($archive) : false;

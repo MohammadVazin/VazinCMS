@@ -57,8 +57,14 @@ try {
         )
     );
 
+    $preTenantSynced = false;
     foreach ($files as $file) {
         $version = explode('-', basename($file))[0];
+        if (!$preTenantSynced && version_compare($version, '10.31.0', '>=')) {
+            \VazinCMS\ExtensionManager::reset();
+            \VazinCMS\ExtensionManager::synchronize(true);
+            $preTenantSynced = true;
+        }
         $check = $pdo->prepare('SELECT 1 FROM schema_migrations WHERE version=:version');
         $check->execute(['version' => $version]);
         if (!$check->fetchColumn()) {
@@ -68,6 +74,10 @@ try {
                 : 'INSERT INTO schema_migrations(version) VALUES(:version) ON CONFLICT(version) DO NOTHING');
             $mark->execute(['version' => $version]);
         }
+    }
+    if (!$preTenantSynced) {
+        \VazinCMS\ExtensionManager::reset();
+        \VazinCMS\ExtensionManager::synchronize(true);
     }
 
     $pdo->commit();

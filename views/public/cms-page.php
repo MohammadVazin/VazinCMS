@@ -10,4 +10,22 @@ $d=$demoCopy[$locale??'en']??$demoCopy['en'];
 <main class="public-main"><article class="public-card">
 <?php if($isTravelDemo):?><aside class="platform-note" data-white-label-demo><strong><?=Security::e($d[0])?></strong><p><?=Security::e($d[1])?></p><a class="primary" href="/<?=Security::e($locale??'en')?>/agency"><?=Security::e(($locale??'en')==='ru'?'Демо и лицензия':(($locale??'en')==='fa'?'درخواست دمو و شرایط لایسنس':(($locale??'en')==='ar'?'طلب الديمو وشروط الترخيص':'Request demo & licensing')))?> ↗</a></aside><?php endif;?>
 <h1><?=Security::e($page['title']??$siteName)?></h1>
-<?php if($page):?><?php if(($page['content_type']??'page')==='post'):?><time datetime="<?=Security::e((string)($page['published_at']?:$page['created_at']))?>"><?=Security::e(substr((string)($page['published_at']?:$page['created_at']),0,10))?></time><?php endif;?><div class="content-body"><?=nl2br(Security::e($page['body']))?></div><?php else:?><p>این صفحه هنوز برای دمو منتشر نشده است.</p><?php endif;?></article></main>
+<?php if($page):?><?php if(($page['content_type']??'page')==='post'):?><time datetime="<?=Security::e((string)($page['published_at']?:$page['created_at']))?>"><?=Security::e(substr((string)($page['published_at']?:$page['created_at']),0,10))?></time><?php endif;?><?php
+// Candidate-only opt-in: pages containing valid columns or gallery blocks render their
+// structured document. Ordinary/legacy pages retain the existing plain-text
+// body output. Invalid JSON fails closed to the escaped legacy body.
+$columnsHtml=null;
+$blockJson=trim((string)($page['block_document']??''));
+if($blockJson!==''){
+    try{
+        $blockDoc=\VazinCMS\BlockEditor::decode($blockJson);
+        foreach($blockDoc['blocks'] as $block){
+            if(in_array(($block['type']??''),['columns','gallery'],true)){
+                $columnsHtml=\VazinCMS\BlockEditor::render($blockDoc);
+                break;
+            }
+        }
+    }catch(\Throwable){$columnsHtml=null;}
+}
+?>
+<div class="content-body"><?php if($columnsHtml!==null):?><?=$columnsHtml?><?php else:?><?=nl2br(Security::e((string)($page['body']??'')))?><?php endif;?></div><?php else:?><p>این صفحه هنوز برای دمو منتشر نشده است.</p><?php endif;?></article></main>

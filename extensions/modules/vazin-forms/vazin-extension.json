@@ -1,0 +1,35 @@
+{
+  "schema": 2,
+  "key": "vazin-forms",
+  "type": "module",
+  "name": "فرم‌ساز پویا و صندوق پیام‌ها (Vazin Forms)",
+  "version": "11.0.0",
+  "description": "فرم‌ساز امن با اعتبارسنجی فیلدها، تله ضداسپم (Honeypot)، صندوق ورودی پیام‌ها، رویدادهای اتوماسیون و بلوک فرم در صفحه‌ساز بصری.",
+  "author": "Vazin Online",
+  "category": "forms",
+  "requires": {
+    "php": ">=8.2.0",
+    "vazincms": ">=11.0.0",
+    "extensions": {}
+  },
+  "permissions": [
+    "routes:public",
+    "routes:admin",
+    "routes:api",
+    "blocks:register",
+    "db:isolated",
+    "settings:manage",
+    "hooks:listen"
+  ],
+  "site_scoped": true,
+  "admin_navigation": [
+    {
+      "label": "فرم‌ساز و پیام‌ها",
+      "path": "/admin/forms",
+      "order": 50
+    }
+  ],
+  "bootstrap": "bootstrap.php",
+  "default_status": "active",
+  "protected": false
+}

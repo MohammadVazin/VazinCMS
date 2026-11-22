@@ -7,20 +7,100 @@ use InvalidArgumentException;
 
 final class MultisiteManager
 {
+    /**
+     * Candidate tenant creation has no anonymous/global-owner fallback.
+     * Persist the site and its explicit site-owner membership atomically.
+     * A failed membership write must never leave an orphan active site.
+     */
     public static function createSite(PDO $pdo,string $key,string $name,int $ownerId,string $locale='en',string $agencyKey=''): int
     {
-        if(!preg_match('/^[a-z0-9][a-z0-9-]{2,78}$/',$key)||mb_strlen(trim($name))<2)throw new InvalidArgumentException('Invalid site metadata.');
-        $pdo->prepare("INSERT INTO cms_sites(site_key,name,status,owner_user_id,agency_key,default_locale,settings_json) VALUES(:key,:name,'active',:owner,:agency,:locale,'{}')")->execute(['key'=>$key,'name'=>$name,'owner'=>$ownerId?:null,'agency'=>$agencyKey,'locale'=>$locale]);$id=(int)$pdo->lastInsertId();
-        if($ownerId>0)$pdo->prepare("INSERT INTO cms_site_memberships(site_id,user_id,site_role,permissions_json) VALUES(:site,:user,'owner','[\"*\"]')")->execute(['site'=>$id,'user'=>$ownerId]);return$id;
+        if(preg_match('/\A[a-z0-9][a-z0-9-]{2,78}\z/D',$key)!==1 ||
+           mb_strlen(trim($name))<2 || $ownerId<1){
+            throw new InvalidArgumentException('invalid_site_owner_or_metadata');
+        }
+        return DatabaseTransaction::immediate(
+            $pdo,
+            static function() use($pdo,$key,$name,$ownerId,$locale,$agencyKey):int {
+                $staff=$pdo->prepare(
+                    "SELECT 1 FROM users WHERE id=:owner AND role='owner' AND status='active'"
+                );
+                $staff->execute(['owner'=>$ownerId]);
+                try {$authorized=$staff->fetchColumn()!==false;}
+                finally {$staff->closeCursor();}
+                if(!$authorized)throw new InvalidArgumentException('site_owner_not_authorized');
+                $pdo->prepare(
+                    "INSERT INTO cms_sites(site_key,name,status,owner_user_id,agency_key,default_locale,settings_json) ".
+                    "VALUES(:key,:name,'active',:owner,:agency,:locale,'{}')"
+                )->execute([
+                    'key'=>$key,'name'=>trim($name),'owner'=>$ownerId,
+                    'agency'=>$agencyKey,'locale'=>$locale
+                ]);
+                $id=(int)$pdo->lastInsertId();
+                if($id<1)throw new InvalidArgumentException('site_id_missing');
+                $pdo->prepare(
+                    "INSERT INTO cms_site_memberships(site_id,user_id,site_role,permissions_json) ".
+                    "VALUES(:site,:user,'owner','[\"*\"]')"
+                )->execute(['site'=>$id,'user'=>$ownerId]);
+                return $id;
+            }
+        );
     }
+    /**
+     * Stage an UNVERIFIED domain. Exact DNS-host validation prevents URL,
+     * credentials, IP, port or wildcard interpretation. The primary-domain
+     * replacement and insert are one transaction, so a duplicate cannot
+     * silently clear an existing primary. This never sets verified_at.
+     */
     public static function addDomain(PDO $pdo,int $siteId,string $domain,bool $primary=false): array
     {
-        $domain=strtolower(trim($domain));if(!filter_var('https://'.$domain,FILTER_VALIDATE_URL)||str_contains($domain,'/'))throw new InvalidArgumentException('Invalid domain.');$token='vzdom_'.bin2hex(random_bytes(16));
-        if($primary)$pdo->prepare('UPDATE cms_site_domains SET is_primary=0 WHERE site_id=:site')->execute(['site'=>$siteId]);$pdo->prepare('INSERT INTO cms_site_domains(site_id,domain,is_primary,verification_token) VALUES(:site,:domain,:primary,:token)')->execute(['site'=>$siteId,'domain'=>$domain,'primary'=>$primary?1:0,'token'=>$token]);return['domain'=>$domain,'verification_token'=>$token];
+        $host=SiteDomainDnsClaim::canonicalHost($domain);
+        if($siteId<1)throw new InvalidArgumentException('invalid_site_id');
+        $token='vzdom_'.bin2hex(random_bytes(16));
+        return DatabaseTransaction::immediate(
+            $pdo,
+            static function() use ($pdo,$siteId,$host,$primary,$token):array {
+                $pgsql=(string)$pdo->getAttribute(PDO::ATTR_DRIVER_NAME)==='pgsql';
+                $check=$pdo->prepare(
+                    'SELECT status FROM cms_sites WHERE id=:site'.
+                    ($pgsql?' FOR UPDATE':'')
+                );
+                $check->execute(['site'=>$siteId]);
+                try {$status=$check->fetchColumn();}
+                finally {$check->closeCursor();}
+                if(!in_array($status,['active','staging'],true)){
+                    throw new InvalidArgumentException('inactive_or_unknown_site');
+                }
+                if($primary){
+                    $pdo->prepare(
+                        'UPDATE cms_site_domains SET is_primary=FALSE WHERE site_id=:site'
+                    )->execute(['site'=>$siteId]);
+                }
+                $insert=$pdo->prepare(
+                    'INSERT INTO cms_site_domains(site_id,domain,is_primary,verification_token) '.
+                    'VALUES(:site,:domain,:primary,:token)'
+                );
+                $insert->bindValue(':site',$siteId,PDO::PARAM_INT);
+                $insert->bindValue(':domain',$host,PDO::PARAM_STR);
+                // PG requires BOOLEAN; SQLite maps PDO bool to 0/1.
+                $insert->bindValue(':primary',$primary,PDO::PARAM_BOOL);
+                $insert->bindValue(':token',$token,PDO::PARAM_STR);
+                $insert->execute();
+                return ['domain'=>$host,'verification_token'=>$token];
+            }
+        );
     }
+    /**
+     * A token held in this SAME database is NOT proof of DNS/HTTP control.
+     * No caller may mark a tenant domain verified until an independently
+     * reviewed verifier proves a fresh external challenge, exact host, site
+     * ownership, expiry and one-time use. Retain the method signature but
+     * fail closed; do not let a legacy token-only path grant tenant access.
+     *
+     * Candidate-only protective gate, not a DNS verification implementation.
+     */
     public static function verifyDomain(PDO $pdo,string $domain,string $token): void
     {
-        $q=$pdo->prepare('UPDATE cms_site_domains SET verified_at=CURRENT_TIMESTAMP WHERE lower(domain)=:domain AND verification_token=:token');$q->execute(['domain'=>strtolower($domain),'token'=>$token]);if($q->rowCount()!==1)throw new InvalidArgumentException('Domain verification failed.');
+        throw new InvalidArgumentException('domain_external_proof_required');
     }
     public static function setSetting(PDO $pdo,int $siteId,string $key,string $value): void
     {

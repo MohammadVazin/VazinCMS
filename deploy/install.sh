@@ -5,8 +5,8 @@ umask 077
 
 [[ $EUID -eq 0 ]] || { echo 'Run as root.' >&2; exit 1; }
 SOURCE="$(cd "$(dirname "$0")/.." && pwd -P)"
-NEW_VERSION='10.30.2'
-OLD_VERSION='10.30.1'
+NEW_VERSION='11.0.0'
+OLD_VERSION='10.30.2'
 STATE_BASE='/var/lib/vazincms-deploy'
 RUNTIME_BASE='/var/lib/vazincms-runtime'
 BACKUP_BASE='/var/backups/vazincms'
@@ -14,13 +14,18 @@ HELPER="$SOURCE/deploy/atomic_release.py"
 MANIFEST="$SOURCE/MANIFEST.sha256"
 SITE_ROOT="$(printenv INSTALL_DIR 2>/dev/null || true)"
 RECOVER_ONLY=0
+STANDALONE=0
 
 usage() {
-  echo "Usage: $0 [--site-root <exact-managed-root>] [--recover-only]" >&2
+  echo "Usage: $0 [--standalone] [--site-root <exact-managed-root>] [--recover-only]" >&2
 }
 
 while (($#)); do
   case "$1" in
+    --standalone)
+      STANDALONE=1
+      shift
+      ;;
     --site-root)
       (($# >= 2)) || { usage; exit 2; }
       SITE_ROOT="$2"
@@ -36,6 +41,10 @@ while (($#)); do
       ;;
   esac
 done
+
+if (( STANDALONE == 1 )); then
+  exec php "$SOURCE/scripts/automated-install.php"
+fi
 
 case "$SITE_ROOT" in
   /var/www/vazin-sites/travel-vazin-online)
@@ -219,12 +228,8 @@ as_www php "$FRESH/tests/identity-link-contract.php"
 as_www php "$FRESH/tests/admin-brand-locale-contract.php"
 as_www php "$FRESH/tests/admin-brand-locale-render-contract.php"
 as_www php "$FRESH/tests/admin-navigation-contract.php"
-as_www php "$FRESH/tests/travel-alerts-responsive-contract.php"
 as_www php "$FRESH/tests/extension-kernel.php"
-as_www php "$FRESH/tests/travel-visa-platform-contract.php"
-as_www php "$FRESH/tests/manual-visa-no-checkout-contract.php"
-as_www php "$FRESH/tests/agency-inquiry-workflow-contract.php"
-as_www php "$FRESH/tests/telegram-alert-readiness-contract.php"
+as_www php "$FRESH/tests/v11-modular-suite.php"
 (cd "$FRESH" && sha256sum -c MANIFEST.sha256 >/dev/null)
 python3 "$DURABLE_HELPER" seal-tree "$FRESH"
 
@@ -342,7 +347,7 @@ python3 "$DURABLE_HELPER" swap "$STATE_ROOT" "$SITE_ROOT" "$OLD_VERSION" "$NEW_V
 as_www php "$SITE_ROOT/scripts/migrate.php"
 as_www php "$SITE_ROOT/scripts/extensions.php" sync
 as_www php "$SITE_ROOT/scripts/configure-site-profile.php"
-as_www php -r 'require $argv[1]."/src/bootstrap.php";$pdo=VazinCMS\Database::connection();if(!$pdo->query("SELECT 1")->fetchColumn()||VazinCMS\Version::current()!=="10.30.2")exit(1);' "$SITE_ROOT"
+as_www php -r 'require $argv[1]."/src/bootstrap.php";$pdo=VazinCMS\Database::connection();if(!$pdo->query("SELECT 1")->fetchColumn()||VazinCMS\Version::current()!=="11.0.0")exit(1);' "$SITE_ROOT"
 nginx -t
 systemctl start nginx
 health "$NEW_VERSION" || { systemctl status nginx --no-pager >&2 || true; false; }

@@ -3,8 +3,7 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/src/bootstrap.php';
 
-use PDO;
-use VazinCMS\{Database,SchemaHealth};
+use VazinCMS\{Database,SchemaHealth,SiteTenantSqliteUniqueMigrator};
 
 $root = dirname(__DIR__);
 $pdo = Database::connection();
@@ -39,9 +38,31 @@ foreach ($files as $file) {
     }
     $sql = file_get_contents($file);
     if (!is_string($sql) || $sql === '') throw new RuntimeException('Migration unavailable: ' . $version);
+    // A migration may deliberately contain only comments (for example
+    // 10.30.1 is a webhook-contract-only release with no DDL). PDO_PGSQL
+    // throws an error for a comment-only string; record the migration
+    // version without calling exec() on non-executable input.
+    // Do not skip files with any non-blank, non-line-comment content.
+    $hasExecutableStatement = false;
+    foreach (preg_split('/\\r\\n|\\r|\\n/', $sql) ?: [] as $line) {
+        $line = ltrim($line);
+        if ($line !== '' && !str_starts_with($line, '--')) {
+            $hasExecutableStatement = true;
+            break;
+        }
+    }
+    if ($driver === 'sqlite' && $version === '10.31.1') {
+        // Transactional rebuild of tenant-unique SQLite tables. This helper
+        // owns BEGIN IMMEDIATE, FK verification, COMMIT and version marking;
+        // the generic migrator must NOT surround it with another transaction.
+        // Do not treat the marker-only SQL file as a completed migration.
+        SiteTenantSqliteUniqueMigrator::apply($pdo,$version);
+        echo "Migration {$version}: OK (SQLite tenant uniqueness)\n";
+        continue;
+    }
     $pdo->beginTransaction();
     try {
-        $pdo->exec($sql);
+        if ($hasExecutableStatement) $pdo->exec($sql);
         $mark = $pdo->prepare($driver === 'sqlite'
             ? 'INSERT OR IGNORE INTO schema_migrations(version) VALUES(:version)'
             : 'INSERT INTO schema_migrations(version) VALUES(:version) ON CONFLICT(version) DO NOTHING');

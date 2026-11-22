@@ -2,8 +2,9 @@
 declare(strict_types=1);
 
 $root = dirname(__DIR__);
-if (is_file($root . '/.env')) {
-    foreach (file($root . '/.env', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
+if (is_file($root . '/.env') && is_readable($root . '/.env')) {
+    $lines = @file($root . '/.env', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach (is_array($lines) ? $lines : [] as $line) {
         $line = trim($line);
         if ($line === '' || str_starts_with($line, '#') || !str_contains($line, '=')) continue;
         [$key, $value] = array_map('trim', explode('=', $line, 2));

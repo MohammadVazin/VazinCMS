@@ -1,8 +1,9 @@
-name: VazinCMS CI
+name: VazinCMS CI & Security Gate
 
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
     branches: [main]
 
@@ -10,17 +11,34 @@ permissions:
   contents: read
 
 jobs:
-  release-contract:
+  verify-and-audit:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version: ['8.2', '8.3', '8.4']
     steps:
       - uses: actions/checkout@v4
-      - uses: shivammathur/setup-php@v2
+
+      - name: Secret & Private Key Leak Gate
+        run: |
+          ! grep -RInE 'BEGIN (RSA |EC |OPENSSH |)PRIVATE KEY|vpg_[A-Za-z0-9_-]{20,}|vpwh_[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9]{30,}' \
+            --exclude-dir=.git .
+
+      - name: Setup PHP ${{ matrix.php-version }}
+        uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.2'
-          extensions: pdo_sqlite, sqlite3
+          php-version: ${{ matrix.php-version }}
+          extensions: pdo, pdo_sqlite, sqlite3, mbstring, openssl, sodium, curl
           coverage: none
-      - name: Smoke tests
-        run: php tests/smoke.php
-      - name: Release and rollback contracts
+
+      - name: Run VazinCMS v11 Modular Suite & Smoke Contracts
+        run: |
+          php tests/v11-modular-suite.php
+          php tests/smoke.php
+          php bin/vazin security:audit
+
+      - name: Full Release, Sandbox & Isolation Contracts
+        if: matrix.php-version == '8.3'
         run: bash scripts/release-check.sh

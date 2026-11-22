@@ -28,7 +28,8 @@ final class ThemeManager
             }
             $allowed[] = $manifest->directory();
         } catch (Throwable $error) {
-            if (isset($row['extension_key'])) {
+            if (isset($row['extension_key']) &&
+                !SiteScopedRuntimePolicy::scopedMode(Database::connection())) {
                 ExtensionManager::markBroken((string) $row['extension_key'], $error->getMessage());
             }
             error_log('[VazinCMS theme] ' . $error->getMessage());
@@ -49,7 +50,13 @@ final class ThemeManager
     public static function previewTheme(?string $key=null): ?array
     {
         if($key===null||$key==='')return ExtensionManager::activeTheme();
-        foreach(ExtensionManager::all() as $row){if(($row['extension_type']??'')==='theme'&&($row['extension_key']??'')===$key&&($row['status']??'')!=='broken')return $row;}
+        // Preview metadata must not provide a runtime PHP theme handle.
+        foreach(ExtensionManager::all() as $row){
+            if(($row['source']??'')==='bundled' &&
+               ($row['extension_type']??'')==='theme' &&
+               ($row['extension_key']??'')===$key &&
+               ($row['status']??'')!=='broken')return $row;
+        }
         return null;
     }
 

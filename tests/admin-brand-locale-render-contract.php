@@ -61,6 +61,13 @@ try {
     $pdo = VazinCMS\Database::connection();
     $pdo->exec((string) file_get_contents($root . '/database/schema-sqlite.sql'));
     $migrations = glob($root . '/database/migrations/*-sqlite.sql') ?: [];
+    // This legacy fixture intentionally tests PRE-10.31 global behavior.
+    // Tenant-scoped 10.31 migrations are separately tested end-to-end.
+    $migrations = array_values(array_filter($migrations,
+        static fn(string $file):bool => version_compare(
+            explode('-',basename($file))[0],'10.31.0','<'
+        )
+    ));
     usort($migrations, static fn(string $left, string $right): int => version_compare(
         explode('-', basename($left))[0],
         explode('-', basename($right))[0]

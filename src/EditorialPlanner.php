@@ -8,6 +8,7 @@ final class EditorialPlanner
     public static function refresh(): array
     {
         $pdo = Database::connection();
+        SiteScopedOperationGate::denyUnscopedWrite($pdo,'editorial_planner');
         $cadence = 3;
         try {
             $query = $pdo->prepare("SELECT setting_value FROM cms_settings WHERE setting_key='publishing_cadence_days'");
@@ -38,6 +39,7 @@ final class EditorialPlanner
 
     public static function saveCadence(int $days): void
     {
+        SiteScopedOperationGate::denyUnscopedWrite(Database::connection(),'editorial_planner');
         $days=max(1,min(30,$days));
         Database::connection()->prepare("INSERT INTO cms_settings(setting_key,setting_value) VALUES('publishing_cadence_days',:value) ON CONFLICT(setting_key) DO UPDATE SET setting_value=:value2,updated_at=CURRENT_TIMESTAMP")
             ->execute(['value'=>(string)$days,'value2'=>(string)$days]);
@@ -45,6 +47,7 @@ final class EditorialPlanner
 
     public static function setStatus(int $id,string $status):void
     {
+        SiteScopedOperationGate::denyUnscopedWrite(Database::connection(),'editorial_planner');
         if($id<1||!in_array($status,['accepted','dismissed','completed'],true))throw new \RuntimeException('وضعیت پیشنهاد معتبر نیست.');
         Database::connection()->prepare('UPDATE editorial_suggestions SET status=:status,updated_at=CURRENT_TIMESTAMP WHERE id=:id')->execute(['status'=>$status,'id'=>$id]);
     }

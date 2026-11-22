@@ -1,53 +1,84 @@
-# VazinCMS
+# VazinCMS v11.0.0
 
-VazinCMS is an open-source, modular content management system for multilingual, branded and managed sites.
+**Next-Generation Capability-Isolated, Module-Centric Content Management System**  
+*Engineered to outperform WordPress in security, speed, multi-tenancy, and modularity — suitable for every website.*
 
-نسخهٔ فارسی این راهنما در ادامه آمده است.
-
-## Support
-
-- Official CMS site and documentation: <https://cms.vazin.online>
-- Security reports: see [SECURITY.md](SECURITY.md)
-- Community support and issue tracking: GitHub Issues
-
-## Quick start
-
-Requirements: PHP 8.2+, a supported database, and a web server. See `deploy/install.sh` and `.env.example` before installation. Do not publish your `.env`, credentials, database dumps, signing keys, or uploaded user files.
-
-```sh
-cp .env.example .env
-# set the required values in .env, then run the documented installer
-./deploy/install.sh
-```
-
-Current release: **10.30.2**. The authoritative upgrade compatibility is defined by `vazin-package.json` and the official release package. The administrator panel verifies the official update feed but never downloads or executes remote code; use the release package and rollback procedure documented in the official support portal.
-
-## Extensibility
-
-- Modules live in `extensions/modules`.
-- Themes live in `extensions/themes`.
-- Core extension contracts and examples are in `docs/EXTENSIONS-FA.md`.
-
-## Copyright and trademark
-
-Copyright (c) 2026 Vazin Online. VazinCMS is licensed under the GNU Affero General Public License v3.0 or later; see [LICENSE](LICENSE).
-
-The names **Vazin**, **Vazin Online**, **VazinCMS**, the official logos and `cms.vazin.online` are not granted for use by the software license. See [TRADEMARKS.md](TRADEMARKS.md).
+[نسخهٔ فارسی در پایین صفحه](#-راهنمای-فارسی-vazincms-v11) · [Official Portal](https://cms.vazin.online) · [Module SDK v2](docs/MODULE-SDK-V2-FA.md) · [Security Policy](SECURITY.md)
 
 ---
 
-## راهنمای فارسی
+## Why VazinCMS Beats WordPress
 
-VazinCMS یک سامانهٔ مدیریت محتوای ماژولار و متن‌باز برای سایت‌های چندزبانه، برندپذیر و مدیریت‌شده است.
+| Capability | Legacy WordPress | VazinCMS v11 (Micro-Kernel) |
+| :--- | :--- | :--- |
+| **Plugin Security** | Any plugin has full root access to DB, `.env`, and `users` | **Capability-Based Schema v2 (`permissions`)** + isolated `mod_<key>_*` tables + Ed25519 sandbox |
+| **Crash Resilience** | One faulty plugin triggers a White Screen of Death | **Fault-Isolated Hook, Filter & Block Bus** — module exceptions never crash pages |
+| **Data Model** | Slow EAV `wp_postmeta` joins degrade at scale | **Dynamic Content Engine** — structured single-table rows + typed schema validation |
+| **Core Features** | Needs 20+ conflicting plugins (Elementor, Yoast, WPML, ACF, WP Rocket) | **Built-in** Visual Template Builder, Multilingual (RTL/LTR), SEO, Edge Page Cache & Headless API |
+| **Site Readiness** | Manual plugin stitching per project | **7 One-Click Site Blueprints** (Corporate, E-Commerce, Magazine, Academy/LMS, Booking, Portfolio, Blog) |
+| **Databases** | MySQL only | **SQLite** (zero-config instant start), **PostgreSQL**, and **MySQL/MariaDB** |
+| **Multi-Tenancy** | Fragile table-prefix Multisite | **Native `site_id` Isolation (`SiteScoped*`)** across Core & Schema v2 modules |
 
-### پشتیبانی رسمی
+---
 
-- سایت و مستندات رسمی: <https://cms.vazin.online>
-- گزارش آسیب‌پذیری: [SECURITY.md](SECURITY.md)
-- گزارش اشکال و گفت‌وگوی عمومی: GitHub Issues
+## 30-Second Quick Start
 
-برای نصب، ابتدا `.env.example` را به `.env` تبدیل کنید، مقادیر محیطی را تنظیم کنید و سپس `deploy/install.sh` را طبق مستندات اجرا کنید. فایل `.env`، کلیدها، خروجی دیتابیس و فایل‌های کاربران نباید در گیت یا محیط عمومی قرار بگیرند.
+### Option A: Zero-Config Local PHP (SQLite)
+```bash
+git clone https://github.com/MohammadVazin/VazinCMS.git
+cd VazinCMS
+cp .env.example .env
 
-### حقوق مالکیت
+# Install & apply a site blueprint (corporate | ecommerce | magazine | academy | booking | portfolio | blog)
+php bin/vazin install --name="Site Owner" --email="owner@example.com" --password="StrongPassword123!" --blueprint=ecommerce
 
-کپی‌رایت VazinCMS متعلق به **Vazin Online، ۲۰۲۶** است. کد با مجوز AGPL-3.0-or-later منتشر می‌شود؛ استفاده از نام، لوگو و دامنهٔ رسمی وزین تابع [سیاست علائم تجاری](TRADEMARKS.md) است.
+# Start local server
+php -S 127.0.0.1:8080 -t public
+```
+
+### Option B: Docker Compose
+```bash
+docker compose up -d --build
+```
+
+---
+
+## Official Open-Core Modules (`extensions/modules/`)
+
+- **`vazin-commerce`** — Products, SKUs, stock inventory, coupons, cart, orders, pluggable `PaymentGatewayInterface`, and `vazin-commerce/product-grid` visual block.
+- **`vazin-lms`** — Courses, curriculum lessons, student enrollments, progress tracking, completion certificates, and `vazin-lms/course-grid` block.
+- **`vazin-booking`** — Bookable services, time-slot capacity enforcement, reservation tracking codes, and `vazin-booking/service-scheduler` block.
+- **`vazin-forms`** — Schema-driven interactive forms, honeypot anti-spam, submissions inbox, and `vazin-forms/form` block.
+- **`seo`** — Sitemaps, Robots, Canonical/OpenGraph metadata, and SEO advisories.
+- **`publishing`** — Editorial workflows, scheduled publishing, and multi-channel syndication.
+- **`content-migration`** — One-click **WordPress WXR XML Importer** (migrates posts, pages, authors, terms, and media).
+
+Scaffold your own Schema v2 module in 1 second:
+```bash
+php bin/vazin module:make my-directory --name="Business Directory"
+```
+
+---
+
+## راهنمای فارسی VazinCMS v11
+
+**VazinCMS نسخه ۱۱** یک سیستم مدیریت محتوای نسل جدید، ۱۰۰٪ **ماژول‌محور**، فوق‌سریع و مبتنی بر معماری **میکروکرنل (Open Core)** است که برای غلبه بر ضعف‌های امنیتی و سرعتی وردپرس طراحی شده و برای **تمام انواع وب‌سایت‌ها** آماده است.
+
+### ویژگی‌های کلیدی نسخه ۱۱
+- **معماری ماژول‌محور مبتنی بر مجوز (Schema v2):** هر ماژول در `vazin-extension.json` دقیقاً مجوزهای موردنیاز خود (`db:isolated`, `blocks:register`, `routes:api`, `http:outbound` و ...) را اعلام می‌کند و تنها به جداول ایزوله خودش (`mod_<key>_*`) دسترسی دارد.
+- **پایداری ضدکرش (Fault Isolation):** خطا در یک ماژول یا بلوک هرگز باعث سفید شدن یا از کار افتادن کل سایت نمی‌شود.
+- **۷ کیت آماده راه‌اندازی (Site Blueprints):** راه‌اندازی یک‌کلیکی سایت‌های **شرکتی**، **فروشگاهی**، **خبری/مجله‌ای**، **آموزشگاه آنلاین (LMS)**، **نوبت‌دهی و رزرواسیون**، **نمونه‌کار/پورتفولیو** و **وبلاگ**.
+- **امکانات بومی در هسته:** صفحه‌ساز و قالب‌ساز بصری، چندزبانگی کامل (فارسی، انگلیسی، عربی، روسی و ...)، موتور انواع محتوا و فیلدهای پویا (جایگزین بومی ACF/CPT)، کش فوق‌سریع صفحات، Headless REST API و ابزار مهاجرت مستقیم از وردپرس.
+
+### ابزار خط فرمان توسعه‌دهندگان (`bin/vazin`)
+```bash
+php bin/vazin status
+php bin/vazin blueprint:list
+php bin/vazin blueprint:apply academy
+php bin/vazin module:list
+php bin/vazin module:make custom-crm --name="مدیریت مشتریان"
+php bin/vazin security:audit
+```
+
+### مجوز و حقوق مالکیت
+کپی‌رایت © ۲۰۲۶ **Vazin Online**. کد هسته و ماژول‌های عمومی تحت مجوز [AGPL-3.0-or-later](LICENSE) منتشر شده است. استفاده از نام و نشان تجاری تابع [TRADEMARKS.md](TRADEMARKS.md) است.

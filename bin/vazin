@@ -1,0 +1,250 @@
+#!/usr/bin/env php
+<?php
+declare(strict_types=1);
+
+$root = dirname(__DIR__);
+require $root . '/src/bootstrap.php';
+
+use VazinCMS\{
+    BlockRegistry,
+    BlueprintManager,
+    CapabilityGuard,
+    CacheStore,
+    Database,
+    DynamicContentService,
+    ExtensionManager,
+    ExtensionManifest,
+    ExtensionRuntime,
+    PageCacheService,
+    RuntimePaths,
+    Version
+};
+
+$argvList = array_slice($argv, 1);
+$command = $argvList[0] ?? 'help';
+$args = [];
+$positional = [];
+foreach (array_slice($argvList, 1) as $arg) {
+    if (str_starts_with($arg, '--') && str_contains($arg, '=')) {
+        [$k, $v] = explode('=', substr($arg, 2), 2);
+        $args[$k] = trim($v, "\"'");
+    } elseif (str_starts_with($arg, '--')) {
+        $args[substr($arg, 2)] = 'true';
+    } else {
+        $positional[] = $arg;
+    }
+}
+
+try {
+    switch ($command) {
+        case 'status':
+            $pdo = Database::connection();
+            $installed = is_file(RuntimePaths::storage() . '/installed.lock');
+            $activeMods = [];
+            if ($installed) {
+                try {
+                    ExtensionRuntime::ensureBooted();
+                    $activeMods = array_column(ExtensionManager::activeModules(), 'extension_key');
+                } catch (Throwable) {
+                }
+            }
+            echo json_encode([
+                'ok' => true,
+                'product' => 'VazinCMS',
+                'version' => Version::current(),
+                'php' => PHP_VERSION,
+                'database_driver' => (string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME),
+                'installed' => $installed,
+                'active_modules' => $activeMods,
+                'registered_blocks' => array_keys(BlockRegistry::catalog()),
+                'blueprints' => array_keys(BlueprintManager::catalog()),
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL;
+            exit(0);
+
+        case 'install':
+            $name = (string) ($args['name'] ?? getenv('CMS_OWNER_NAME') ?: 'Site Owner');
+            $email = strtolower((string) ($args['email'] ?? getenv('CMS_OWNER_EMAIL') ?: ''));
+            $password = (string) ($args['password'] ?? getenv('CMS_OWNER_PASSWORD') ?: '');
+            $blueprint = (string) ($args['blueprint'] ?? 'corporate');
+            $locale = (string) ($args['locale'] ?? 'fa');
+            if ($email === '' || $password === '') {
+                throw new InvalidArgumentException('Usage: php bin/vazin install --email=admin@example.com --password=<min-12-chars> [--name="Owner"] [--blueprint=ecommerce]');
+            }
+            putenv('CMS_OWNER_NAME=' . $name);
+            putenv('CMS_OWNER_EMAIL=' . $email);
+            putenv('CMS_OWNER_PASSWORD=' . $password);
+            require $root . '/scripts/automated-install.php';
+            ExtensionManager::reset();
+            ExtensionManager::synchronize();
+            $res = BlueprintManager::apply(Database::connection(), $blueprint, $locale, 1);
+            echo "Applied blueprint '{$res['blueprint']}' (modules: " . implode(', ', $res['activated_modules']) . ").\n";
+            exit(0);
+
+        case 'module:list':
+            $rows = ExtensionManager::all();
+            foreach ($rows as $row) {
+                $schema = (int) ($row['manifest']['schema'] ?? 1);
+                $perms = implode(',', $row['manifest']['permissions'] ?? []);
+                printf(
+                    "%-22s %-8s v%-10s schema=v%d status=%-9s source=%-8s perms=[%s]\n",
+                    (string) $row['extension_key'],
+                    (string) $row['extension_type'],
+                    (string) $row['version'],
+                    $schema,
+                    (string) $row['status'],
+                    (string) $row['source'],
+                    $perms
+                );
+            }
+            exit(0);
+
+        case 'module:enable':
+            $key = $positional[0] ?? '';
+            if ($key === '') throw new InvalidArgumentException('Usage: php bin/vazin module:enable <module-key>');
+            ExtensionManager::activate($key);
+            PageCacheService::flushAll();
+            echo "Module '{$key}' enabled.\n";
+            exit(0);
+
+        case 'module:disable':
+            $key = $positional[0] ?? '';
+            if ($key === '') throw new InvalidArgumentException('Usage: php bin/vazin module:disable <module-key>');
+            ExtensionManager::deactivate($key);
+            PageCacheService::flushAll();
+            echo "Module '{$key}' disabled.\n";
+            exit(0);
+
+        case 'module:make':
+            $key = strtolower(trim((string) ($positional[0] ?? '')));
+            if (preg_match('/^[a-z0-9][a-z0-9-]{1,60}$/', $key) !== 1) {
+                throw new InvalidArgumentException('Invalid module key. Use lowercase letters, digits, and hyphens (e.g. my-shop).');
+            }
+            $modDir = $root . '/extensions/modules/' . $key;
+            if (is_dir($modDir)) {
+                throw new RuntimeException("Module directory already exists: {$modDir}");
+            }
+            mkdir($modDir, 0755, true);
+            $title = (string) ($args['name'] ?? ucwords(str_replace('-', ' ', $key)));
+            $category = (string) ($args['category'] ?? 'general');
+            $manifestData = [
+                'schema' => 2,
+                'key' => $key,
+                'type' => 'module',
+                'name' => $title,
+                'version' => '1.0.0',
+                'description' => "Custom VazinCMS Schema v2 module ({$title}).",
+                'author' => (string) ($args['author'] ?? 'Developer'),
+                'category' => in_array($category, ExtensionManifest::CATEGORIES, true) ? $category : 'general',
+                'requires' => [
+                    'php' => '>=8.2.0',
+                    'vazincms' => '>=11.0.0',
+                    'extensions' => new stdClass(),
+                ],
+                'permissions' => [
+                    'routes:public',
+                    'routes:api',
+                    'blocks:register',
+                    'db:isolated',
+                    'hooks:listen',
+                ],
+                'site_scoped' => true,
+                'admin_navigation' => [],
+                'bootstrap' => 'bootstrap.php',
+                'default_status' => 'inactive',
+                'protected' => false,
+            ];
+            file_put_contents(
+                $modDir . '/vazin-extension.json',
+                json_encode($manifestData, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL
+            );
+            $bootstrapCode = <<<PHP
+<?php
+declare(strict_types=1);
+
+use VazinCMS\ModuleContext;
+
+return static function (ModuleContext \$module): void {
+    \$module->registerBlock('card', [
+        'label' => '{$title} Block',
+        'category' => 'modules',
+        'schema' => ['heading' => 'string'],
+    ], static function (array \$data): string {
+        \$h = htmlspecialchars((string) (\$data['heading'] ?? '{$title}'), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        return '<div class="vz-custom-card"><h3>' . \$h . '</h3></div>';
+    });
+
+    \$module->api('GET', 'ping', static fn(): array => [
+        'module' => \$module->key(),
+        'version' => \$module->version(),
+        'status' => 'ready',
+    ]);
+};
+PHP;
+            file_put_contents($modDir . '/bootstrap.php', $bootstrapCode . PHP_EOL);
+            // Validate generated manifest immediately
+            ExtensionManifest::fromDirectory($modDir);
+            echo "Scaffolded Schema v2 module '{$key}' in extensions/modules/{$key}\n";
+            exit(0);
+
+        case 'blueprint:list':
+            foreach (BlueprintManager::catalog() as $bp) {
+                printf("%-14s %-36s modules=[%s]\n", $bp['key'], $bp['name'], implode(', ', $bp['modules']));
+            }
+            exit(0);
+
+        case 'blueprint:apply':
+            $bpKey = $positional[0] ?? '';
+            if ($bpKey === '') throw new InvalidArgumentException('Usage: php bin/vazin blueprint:apply <corporate|ecommerce|magazine|academy|booking|portfolio|blog>');
+            $locale = (string) ($args['locale'] ?? 'fa');
+            $res = BlueprintManager::apply(Database::connection(), $bpKey, $locale, 1);
+            echo json_encode(['ok' => true] + $res, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL;
+            exit(0);
+
+        case 'cache:clear':
+            $flushed = PageCacheService::flushAll();
+            CacheStore::invalidateTag('content');
+            CacheStore::invalidateTag('settings');
+            echo "Cleared {$flushed} cached page entries.\n";
+            exit(0);
+
+        case 'security:audit':
+            $issues = [];
+            $appKey = (string) (getenv('APP_KEY') ?: '');
+            if ($appKey !== '' && ($appKey === 'change-this-to-a-random-64-character-secret' || strlen($appKey) < 32)) {
+                $issues[] = 'APP_KEY is weak or uses example placeholder.';
+            }
+            if (is_file($root . '/.env') && (fileperms($root . '/.env') & 0x0004) !== 0 && DIRECTORY_SEPARATOR === '/') {
+                $issues[] = '.env file is world-readable; chmod 0600 recommended.';
+            }
+            foreach (glob($root . '/extensions/modules/*', GLOB_ONLYDIR) ?: [] as $dir) {
+                $m = ExtensionManifest::fromDirectory($dir);
+                if ($m->schema() === 2) {
+                    CapabilityGuard::validateList($m->data()['permissions'] ?? []);
+                }
+            }
+            echo json_encode([
+                'ok' => $issues === [],
+                'version' => Version::current(),
+                'issues' => $issues,
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL;
+            exit($issues === [] ? 0 : 1);
+
+        default:
+            echo "VazinCMS CLI v" . Version::current() . "\n\n";
+            echo "Available commands:\n";
+            echo "  status                           Show runtime, DB, active modules & registered blocks\n";
+            echo "  install                          Standalone CLI installation + optional blueprint\n";
+            echo "  module:list                      List all modules, schemas & declared capabilities\n";
+            echo "  module:enable <key>              Enable a bundled module\n";
+            echo "  module:disable <key>             Disable a module\n";
+            echo "  module:make <key> [--name=...]   Scaffold a new Schema v2 capability-isolated module\n";
+            echo "  blueprint:list                   List universal site blueprints\n";
+            echo "  blueprint:apply <key>            Apply a site blueprint (ecommerce, academy, magazine...)\n";
+            echo "  cache:clear                      Flush edge page cache\n";
+            echo "  security:audit                   Run security & manifest capability audit\n";
+            exit($command === 'help' ? 0 : 2);
+    }
+} catch (Throwable $e) {
+    fwrite(STDERR, "[VazinCMS CLI Error] " . $e->getMessage() . PHP_EOL);
+    exit(1);
+}

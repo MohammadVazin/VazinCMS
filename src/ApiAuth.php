@@ -13,6 +13,16 @@ final class ApiAuth
         if(!$token) self::fail(401,'invalid_token','کلید API نامعتبر، منقضی یا لغوشده است.');
         $scopes=json_decode((string)$token['scopes'],true);$scopes=is_array($scopes)?$scopes:[];
         if(!in_array($scope,$scopes,true)&&!in_array('*',$scopes,true)) self::fail(403,'insufficient_scope','این کلید مجوز لازم را ندارد.');
+        if(SiteScopeMode::active($pdo)){
+            try {
+                SiteScopedApiTokenGrant::assertCanUse(
+                    $pdo,SiteContext::id(),(int)$token['id']
+                );
+            }catch(\Throwable){
+                self::fail(403,'site_scope_denied',
+                    'این کلید API برای سایت جاری مجوز تأییدشده ندارد.');
+            }
+        }
         $pdo->prepare('UPDATE api_tokens SET last_used_at=CURRENT_TIMESTAMP WHERE id=:id')->execute(['id'=>$token['id']]);
         return $token;
     }

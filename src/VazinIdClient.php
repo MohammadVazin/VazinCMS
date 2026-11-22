@@ -7,7 +7,26 @@ final class VazinIdClient
     public static function configured(): bool { return VazinIdSettings::configured(); }
     public static function begin(string $returnTo='/admin',?int $linkUserId=null): never
     {
-        if(!self::configured())throw new \RuntimeException('اتصال Vazin ID هنوز برای این سایت تنظیم نشده است.');
+        if(!self::configured())throw new \RuntimeException('identity_provider_unavailable');
+        $previousId=session_id();
+        $rotatedId=SessionSecurity::renewForOAuth();
+        if($linkUserId!==null &&
+           SiteScopedRuntimePolicy::scopedMode(Database::connection())){
+            try {
+                SiteScopedAdminSessionBinding::rotateForOAuthLink(
+                    Database::connection(),SiteContext::id(),$linkUserId,
+                    $previousId,$rotatedId,
+                    (string)($_SERVER['HTTP_HOST']??''),
+                    (string)($_SESSION['auth_provider']??''),
+                    (int)($_SESSION['session_version']??0)
+                );
+            }catch(\Throwable $error){
+                // A rotation without an updated binding cannot continue as
+                // an authenticated OAuth linking flow.
+                try { SessionSecurity::destroy(); } catch(\Throwable) {}
+                throw $error;
+            }
+        }
         $state=self::b64(random_bytes(32));$verifier=self::b64(random_bytes(48));
         $_SESSION['vazin_id_oauth'][$state]=['verifier'=>$verifier,'created'=>time(),'return_to'=>LocalReturn::path($returnTo),'link_user_id'=>$linkUserId];
         $settings=VazinIdSettings::current();
@@ -17,7 +36,8 @@ final class VazinIdClient
     public static function callback():array
     {
         $state=(string)($_GET['state']??'');$flow=$_SESSION['vazin_id_oauth'][$state]??null;unset($_SESSION['vazin_id_oauth'][$state]);
-        if(!is_array($flow)||time()-(int)($flow['created']??0)>600)throw new \RuntimeException('درخواست ورود منقضی یا نامعتبر است.');
+        if(!is_array($flow)||time()-(int)($flow['created']??0)>600)throw new \InvalidArgumentException('invalid_oauth_state');
+        if(!self::configured())throw new \RuntimeException('identity_provider_unavailable');
         if(isset($_GET['error']))throw new \RuntimeException('اجازه ورود از طرف کاربر رد شد.');$code=(string)($_GET['code']??'');if($code==='')throw new \RuntimeException('کد ورود از Vazin ID دریافت نشد.');
         $settings=VazinIdSettings::current();
         $token=self::request('/oauth/token',['grant_type'=>'authorization_code','code'=>$code,'client_id'=>(string)$settings['client_id'],'redirect_uri'=>self::callbackUrl(),'code_verifier'=>(string)$flow['verifier']]);

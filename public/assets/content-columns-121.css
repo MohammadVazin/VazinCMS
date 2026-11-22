@@ -1,0 +1,24 @@
+/* Candidate-only public rendering for structured columns pages.
+   Preserve legacy body presentation on pages without a columns block. */
+.content-body .cms-columns{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:clamp(14px,3vw,32px);align-items:start;margin-block:24px;
+}
+.content-body .cms-column{
+  min-width:0;box-sizing:border-box;overflow-wrap:anywhere;
+}
+.content-body .cms-column>*:first-child{margin-block-start:0}
+.content-body .cms-column>*:last-child{margin-block-end:0}
+.content-body .cms-column img{max-width:100%;height:auto}
+@media(max-width:680px){
+  .content-body .cms-columns{grid-template-columns:minmax(0,1fr)}
+}
+
+/* Structured gallery output, including gallery-only public pages. */
+.content-body .cms-gallery{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-block:24px;align-items:start}
+.content-body .cms-gallery-columns-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.content-body .cms-gallery-columns-4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.content-body .cms-gallery figure{margin:0;min-width:0;overflow-wrap:anywhere}
+.content-body .cms-gallery img{display:block;max-width:100%;width:100%;height:auto}
+.content-body .cms-gallery figcaption{line-height:1.7;padding-block:8px}
+@media(max-width:680px){.content-body .cms-gallery{grid-template-columns:minmax(0,1fr)}}

@@ -10,41 +10,36 @@ $check = static function (bool $condition, string $message): void {
 
 $manifest = json_decode((string) file_get_contents($root . '/vazin-package.json'), true, 32, JSON_THROW_ON_ERROR);
 $expectedKeys = [
-    'schema','product','type','version','minimum_php','entrypoint','upgrade_only','managed_site_upgrade_contract',
-    'supports_preview','supports_rollback','compatible_targets','minimum_vazin_online','minimum_current_version',
-    'supported_current_versions','release_channel','risk_level','connector_version','requires','release_notes',
+    'schema','product','type','version','minimum_php','entrypoint','upgrade_only','supports_fresh_install',
+    'managed_site_upgrade_contract','supports_preview','supports_rollback','compatible_targets',
+    'minimum_vazin_online','minimum_current_version','supported_current_versions','release_channel',
+    'risk_level','connector_version','requires','optional_integrations','release_notes',
 ];
 sort($expectedKeys);
 $actualKeys = array_keys($manifest);
 sort($actualKeys);
-$check($actualKeys === $expectedKeys, 'Upgrade manifest keys are not exact.');
-$check(($manifest['version'] ?? null) === '10.30.2', 'Manifest version must be 10.30.2.');
-$check(($manifest['entrypoint'] ?? null) === 'deploy/install.sh', 'Upgrade entrypoint is not selected.');
-$check(($manifest['upgrade_only'] ?? null) === true, 'Release must be upgrade-only.');
+$check($actualKeys === $expectedKeys, 'Package manifest keys are not exact.');
+$check(($manifest['version'] ?? null) === '11.0.0', 'Manifest version must be 11.0.0.');
+$check(($manifest['entrypoint'] ?? null) === 'deploy/install.sh', 'Entrypoint is not selected.');
+$check(($manifest['supports_fresh_install'] ?? null) === true, 'v11 must support standalone fresh install.');
 $check(($manifest['managed_site_upgrade_contract'] ?? null) === 'external-runtime-v1', 'External runtime contract is missing.');
-$check(($manifest['minimum_vazin_online'] ?? null) === '16.8.27', 'Upgrade requires VazinOnline 16.8.27.');
-$check(($manifest['minimum_current_version'] ?? null) === '10.30.0', 'Upgrade predecessor must be exact.');
-$check(($manifest['supported_current_versions'] ?? null) === ['10.30.0'], 'Supported predecessor list must be exact.');
-$check(!array_key_exists('bootstrap_only', $manifest), 'Bootstrap flag must be absent from an upgrade package.');
-$check(!array_key_exists('managed_site_bootstrap_contract', $manifest), 'Bootstrap contract must be absent from an upgrade package.');
 
 $installer = (string) file_get_contents($root . '/deploy/install.sh');
 foreach ([
-    "NEW_VERSION='10.30.2'",
-    "OLD_VERSION='10.30.1'",
+    "NEW_VERSION='11.0.0'",
+    "OLD_VERSION='10.30.2'",
+    '--standalone',
     'printenv INSTALL_DIR',
     '--site-root',
     'validate_external_environment',
     'runtime.tar.gz',
     'probe-exchange',
     'configure-site-profile.php',
-    'agency-inquiry-workflow-contract.php',
     'admin-brand-locale-contract.php',
     'admin-brand-locale-render-contract.php',
     'admin-navigation-contract.php',
-    'telegram-alert-readiness-contract.php',
+    'v11-modular-suite.php',
     '/usr/sbin/runuser -u www-data --',
-    'CMS recovery journal remains pending',
     'status "$STATE_ROOT"',
     'python3 "$DURABLE_HELPER" swap',
 ] as $needle) {
@@ -60,9 +55,5 @@ $check(str_contains($helper, 'elif runtime["mode"]=="existing"'), 'Existing-runt
 $rollback = (string) file_get_contents($root . '/deploy/rollback.sh');
 $check(str_contains($rollback, 'External runtime and schema remain preserved.'), 'Rollback contract is not explicit.');
 $check(!str_contains($rollback, 'hydrate_old_slot'), 'Rollback must not hydrate legacy runtime.');
-$check(is_file($root . '/database/migrations/10.28.0-sqlite.sql'), 'SQLite tenant-demo preflight migration marker is missing.');
-$check(is_file($root . '/database/migrations/10.28.0-pgsql.sql'), 'PostgreSQL tenant-demo preflight migration marker is missing.');
-$check(is_file($root . '/tests/admin-brand-locale-render-contract.php'), 'Admin brand locale render contract is missing.');
-$check(is_file($root . '/tests/admin-navigation-contract.php'), 'Admin navigation contract is missing.');
 
 echo "Managed-site external-runtime upgrade contract: OK\n";

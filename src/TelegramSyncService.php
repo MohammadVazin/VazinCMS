@@ -179,6 +179,7 @@ final class TelegramSyncService
 
     public static function receiveWebhook(array $connection, array $update): array
     {
+        SiteScopedOperationGate::denyUnscopedWrite(Database::connection(),'telegram_sync');
         DeliveryPolicy::assertTelegramEnabled();
         $updateId = filter_var($update['update_id'] ?? null, FILTER_VALIDATE_INT);
         if (!is_int($updateId) || $updateId < 0) throw new RuntimeException('update_id تلگرام معتبر نیست.');
@@ -192,10 +193,7 @@ final class TelegramSyncService
         $businessUpdate = in_array($type, ['business_connection','business_message','edited_business_message','deleted_business_messages'], true)
             || ($type === 'callback_query' && isset($update['callback_query']['message']['business_connection_id']));
         $json = json_encode(
-            $businessUpdate ? self::redactedBusinessUpdate($type, $update, $updateId)
-                : ($type === 'message' && TravelAlertService::isConsentCommand($update['message'])
-                    ? TravelAlertService::redactedConsentUpdate($update, $updateId)
-                    : $update),
+            $businessUpdate ? self::redactedBusinessUpdate($type, $update, $updateId) : $update,
             JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR
         );
         $insert = Database::connection()->prepare(
@@ -222,8 +220,11 @@ final class TelegramSyncService
                     $result = self::syncChannelMessage($connection, $message, $updateId, $json);
                 }
             } elseif ($type === 'message') {
-                $result = TravelAlertService::handleIncomingMessage($connection, $update['message'])
-                    ?? self::handleManagerCommand($connection, $update['message']);
+                $handled = ExtensionRuntime::filter('telegram.incoming_message', null, [
+                    'connection' => $connection,
+                    'message' => $update['message'],
+                ]);
+                $result = is_array($handled) ? $handled : self::handleManagerCommand($connection, $update['message']);
             } elseif ($type === 'business_connection') {
                 if (!DeliveryPolicy::telegramBusinessEnabled()) {
                     $result = ['status'=>'ignored','reason'=>'telegram_business_disabled'];
@@ -277,6 +278,7 @@ final class TelegramSyncService
 
     public static function syncChannelMessage(array $connection, array $message, ?int $updateId = null, ?string $rawPayload = null): array
     {
+        SiteScopedOperationGate::denyUnscopedWrite(Database::connection(),'telegram_sync');
         $messageId = filter_var($message['message_id'] ?? null, FILTER_VALIDATE_INT);
         $timestamp = filter_var($message['date'] ?? null, FILTER_VALIDATE_INT);
         if (!is_int($messageId) || $messageId < 1 || !is_int($timestamp) || $timestamp < 1) throw new RuntimeException('شناسه یا تاریخ پیام تلگرام معتبر نیست.');
@@ -341,6 +343,7 @@ final class TelegramSyncService
 
     public static function queuePage(int $pageId): int
     {
+        SiteScopedOperationGate::denyUnscopedWrite(Database::connection(),'telegram_outbound');
         if ($pageId < 1 || !DeliveryPolicy::telegramEnabled()) return 0;
         $pdo = Database::connection();
         $query = $pdo->prepare("SELECT * FROM cms_pages WHERE id=:id AND status='published'");
@@ -396,6 +399,7 @@ final class TelegramSyncService
 
     public static function processOutbox(int $limit = 10): array
     {
+        SiteScopedOperationGate::denyUnscopedWrite(Database::connection(),'telegram_outbound');
         if (!DeliveryPolicy::telegramEnabled()) return ['status'=>'disabled','processed'=>0,'sent'=>0,'failed'=>0];
         $pdo = Database::connection();
         $limit = max(1, min(50, $limit));

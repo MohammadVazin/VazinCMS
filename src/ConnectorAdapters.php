@@ -22,7 +22,6 @@ final class ConnectorAdapters
             new ConnectorAdapter('vazinpay','VazinPay','payments',['wallet','invoice','payment','fx'],['icon'=>'wallet','category'=>'finance'],'/health'),
             new ConnectorAdapter('vazin-number','Vazin Number','telecom',['numbers','orders','sms'],['icon'=>'phone','category'=>'service'],'/health'),
             new ConnectorAdapter('vazin-ai','Vazin AI','ai',['chat','models','usage'],['icon'=>'spark','category'=>'ai'],'/health'),
-            new ConnectorAdapter('vazin-travel','Vazin Travel Engine','travel',['search','quote','book','issue','status'],['icon'=>'plane','category'=>'travel'],'/health'),
             new ConnectorAdapter('learn-writer','Vazin Learn Writer','authoring',['draft','guides','mcp','oauth'],['icon'=>'book','category'=>'content'],'/healthz'),
         ];
     }

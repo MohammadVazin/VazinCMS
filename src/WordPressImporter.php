@@ -10,6 +10,15 @@ final class WordPressImporter
 {
     public static function importFile(PDO $pdo,string $path,array $options=[]): array
     {
+        if (SiteScopeMode::active($pdo)) {
+            $actor=Auth::user();
+            if (!is_array($actor) || (int)($actor['id']??0)<1) {
+                throw new RuntimeException('tenant_access_denied');
+            }
+            return SiteScopedWordPressImporter::importFile(
+                $pdo,$path,SiteContext::id(),(int)$actor['id'],$options
+            );
+        }
         if(!is_file($path))throw new RuntimeException('WXR file not found.');$fingerprint=hash_file('sha256',$path)?:throw new RuntimeException('WXR fingerprint failed.');
         $job=self::job($pdo,$fingerprint,$options);$xml=simplexml_load_file($path,SimpleXMLElement::class,LIBXML_NONET|LIBXML_NOCDATA);if(!$xml)throw new RuntimeException('Invalid WXR XML.');
         $ns=$xml->getNamespaces(true);$channel=$xml->channel;$stats=['job_id'=>$job,'scanned'=>0,'created'=>0,'updated'=>0,'skipped'=>0,'terms'=>0,'authors'=>0,'attachments'=>0,'redirects'=>0,'errors'=>0];

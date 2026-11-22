@@ -83,7 +83,7 @@ $check(
 );
 
 $check(
-    str_contains($readme, 'Current release: **10.30.2**'),
+    str_contains($readme, '# VazinCMS v11.0.0'),
     'README current release missing'
 );
 

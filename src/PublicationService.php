@@ -11,6 +11,7 @@ final class PublicationService
 {
     public static function processDue(): string
     {
+        SiteScopedOperationGate::denyUnscopedWrite(Database::connection(),'external_publication');
         if (!DeliveryPolicy::externalEnabled()) return 'ارسال خارجی غیرفعال است؛ 0 کار انتشار پردازش شد.';
         $pdo = Database::connection();
         $statement = $pdo->query(

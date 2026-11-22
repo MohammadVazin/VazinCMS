@@ -43,7 +43,7 @@ final class ContentModel
 
     public static function trash(PDO $pdo,int $pageId,int $actorId): void
     {
-        $q=$pdo->prepare("SELECT title,body,meta_title,meta_description FROM cms_pages WHERE id=:id AND trash_status='active'");$q->execute(['id'=>$pageId]);$row=$q->fetch();if(!$row)throw new RuntimeException('Content not found or already trashed.');
+        $q=$pdo->prepare("SELECT * FROM cms_pages WHERE id=:id AND trash_status='active'");$q->execute(['id'=>$pageId]);$row=$q->fetch();if(!$row)throw new RuntimeException('Content not found or already trashed.');
         self::revision($pdo,$pageId,$actorId,'pre-trash',$row);
         $pdo->prepare("UPDATE cms_pages SET trash_status='trash',trashed_at=CURRENT_TIMESTAMP,trashed_by=:actor,is_home=0,updated_at=CURRENT_TIMESTAMP WHERE id=:id")->execute(['actor'=>$actorId,'id'=>$pageId]);
     }
@@ -54,8 +54,7 @@ final class ContentModel
     }
     public static function revision(PDO $pdo,int $pageId,int $actorId,string $kind,array $row): void
     {
-        $hash=hash('sha256',(string)$row['title']."\0".(string)$row['body']."\0".(string)($row['meta_title']??'')."\0".(string)($row['meta_description']??''));
-        $pdo->prepare('INSERT INTO cms_page_revisions(page_id,title,body,meta_title,meta_description,created_by,revision_kind,content_hash,metadata_json) VALUES(:page,:title,:body,:meta_title,:meta_description,:actor,:kind,:hash,:metadata)')->execute(['page'=>$pageId,'title'=>$row['title'],'body'=>$row['body'],'meta_title'=>$row['meta_title']??'','meta_description'=>$row['meta_description']??'','actor'=>$actorId,'kind'=>$kind,'hash'=>$hash,'metadata'=>'{}']);
+        ContentRevision::record($pdo,$pageId,$actorId,$kind,$row);
     }
 
     public static function canEdit(array $user,array $page): bool

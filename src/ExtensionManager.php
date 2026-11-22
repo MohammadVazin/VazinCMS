@@ -27,6 +27,25 @@ final class ExtensionManager
 
     public static function synchronize(bool $force = false): void
     {
+        // Never perform forced global registry sync on a tenant-scoped DB.
+        // Background/browser runtime still requires a verified single-site
+        // registry until per-site extension state has been implemented.
+        if ($force) {
+            SiteScopedOperationGate::denyUnscopedWrite(
+                Database::connection(),'extension_registry'
+            );
+        }
+        if (!$force && SiteScopedRuntimePolicy::scopedMode(Database::connection())) {
+            // Never re-install/synchronize global packages from a migrated
+            // tenant request. The bundled registry must exist beforehand.
+            $ready=Database::connection()->query(
+                "SELECT 1 FROM cms_extensions WHERE extension_key='vazin-default' " .
+                "AND source='bundled' LIMIT 1"
+            )->fetchColumn();
+            if(!$ready)throw new RuntimeException('tenant_extension_registry_unavailable');
+            self::$synchronized=true;
+            return;
+        }
         if (self::$synchronized && (!$force || self::$forceSynchronized)) return;
         if (!$force) {
             try {
@@ -67,7 +86,7 @@ final class ExtensionManager
             try {
                 $manifest = self::manifestForRow($row);
         if (($row['source']??'')==='runtime') {
-            $q=Database::connection()->prepare('SELECT signature_status,license_status FROM marketplace_provenance WHERE extension_key=:key AND version=:version ORDER BY id DESC LIMIT 1');$q->execute(['key'=>$key,'version'=>$manifest->version()]);$trust=$q->fetch();
+            $q=Database::connection()->prepare('SELECT signature_status,license_status FROM marketplace_provenance WHERE extension_key=:key AND version=:version ORDER BY id DESC LIMIT 1');$q->execute(['key'=>$manifest->key(),'version'=>$manifest->version()]);$trust=$q->fetch();
             if(!$trust||!in_array((string)$trust['signature_status'],['trusted'],true)||!in_array((string)$trust['license_status'],['active','not_required'],true))throw new RuntimeException('بستهٔ runtime بدون اعتماد/لایسنس معتبر قابل فعال‌سازی نیست.');
         }
                 $row['manifest'] = $manifest->data();
@@ -83,9 +102,16 @@ final class ExtensionManager
     public static function activeModules(): array
     {
         self::synchronize();
-        return Database::connection()->query(
-            "SELECT * FROM cms_extensions WHERE extension_type='module' AND status='active' ORDER BY extension_key"
+        $pdo=Database::connection();
+        $rows=$pdo->query(
+            "SELECT * FROM cms_extensions WHERE extension_type='module' AND status='active' AND source='bundled' ORDER BY extension_key"
         )->fetchAll();
+        if(SiteScopedRuntimePolicy::scopedMode($pdo)){
+            return array_values(array_filter(
+                $rows,[SiteScopedRuntimePolicy::class,'moduleAllowed']
+            ));
+        }
+        return $rows;
     }
 
     public static function compatibilityErrors(ExtensionManifest $manifest): array
@@ -117,10 +143,15 @@ final class ExtensionManager
         try {
             self::synchronize();
             $statement = Database::connection()->prepare(
-                "SELECT 1 FROM cms_extensions WHERE extension_type=:type AND extension_key=:key AND status='active'"
+                "SELECT * FROM cms_extensions WHERE extension_type=:type AND extension_key=:key AND status='active'"
             );
             $statement->execute(['type' => $type, 'key' => $key]);
-            return (bool) $statement->fetchColumn();
+            $row=$statement->fetch(PDO::FETCH_ASSOC);
+            if(!is_array($row) || ($row['source']??'')!=='bundled')return false;
+            if(SiteScopedRuntimePolicy::scopedMode(Database::connection())){
+                return SiteScopedRuntimePolicy::extensionAllowed($row);
+            }
+            return true;
         } catch (Throwable) {
             return false;
         }
@@ -133,6 +164,13 @@ final class ExtensionManager
             "SELECT * FROM cms_extensions WHERE extension_type='theme' AND status='active' ORDER BY updated_at DESC LIMIT 1"
         );
         $row = $statement->fetch();
+        // Never render runtime-installed PHP themes inside CMS FPM.
+        if(is_array($row) && ($row['source']??'')!=='bundled')return null;
+        if(is_array($row) &&
+            SiteScopedRuntimePolicy::scopedMode(Database::connection()) &&
+            !SiteScopedRuntimePolicy::themeAllowed($row)){
+            return null;
+        }
         return is_array($row) ? $row : null;
     }
 
@@ -144,16 +182,31 @@ final class ExtensionManager
         $statement=Database::connection()->prepare("SELECT * FROM cms_extensions WHERE extension_type=:type AND extension_key=:key AND status='active'");
         $statement->execute(['type'=>$type,'key'=>$key]);
         $row=$statement->fetch();
+        if(is_array($row) && ($row['source']??'')!=='bundled')return null;
+        if(is_array($row) &&
+            SiteScopedRuntimePolicy::scopedMode(Database::connection()) &&
+            !SiteScopedRuntimePolicy::extensionAllowed($row)){
+            return null;
+        }
         return is_array($row)?$row:null;
     }
 
     public static function activate(string $key): void
     {
+        SiteScopedOperationGate::denyUnscopedWrite(
+            Database::connection(),'extension_registry'
+        );
         self::withOperationLock(static function() use ($key): void {
         self::synchronize(true);
         $row = self::row($key);
         if (($row['status'] ?? '') === 'removed') {
             throw new RuntimeException('افزونهٔ بایگانی‌شده قابل فعال‌سازی نیست.');
+        }
+        // Candidate hard boundary: uploaded modules and themes must never
+        // become in-process runtime code. A future isolated signed worker
+        // must be independently accepted before product activation.
+        if (($row['source']??'')!=='bundled') {
+            throw new RuntimeException('plugin_inprocess_activation_denied');
         }
         if (($row['source']??'')==='runtime') { try { $q=Database::connection()->prepare("SELECT 1 FROM cms_package_quarantine WHERE extension_key=:key AND status='active' LIMIT 1"); $q->execute(['key'=>$key]); if($q->fetchColumn()) throw new RuntimeException('این بسته در قرنطینه امنیتی است.'); } catch (\PDOException $e) { if(!str_contains($e->getMessage(),'cms_package_quarantine')) throw $e; } }
         $manifest = self::manifestForRow($row);
@@ -191,6 +244,9 @@ final class ExtensionManager
 
     public static function deactivate(string $key): void
     {
+        SiteScopedOperationGate::denyUnscopedWrite(
+            Database::connection(),'extension_registry'
+        );
         self::withOperationLock(static function() use ($key): void {
         self::synchronize(true);
         $row = self::row($key);
@@ -207,6 +263,9 @@ final class ExtensionManager
 
     public static function archive(string $key): void
     {
+        SiteScopedOperationGate::denyUnscopedWrite(
+            Database::connection(),'extension_registry'
+        );
         self::withOperationLock(static function() use ($key): void {
         self::synchronize(true);
         $row = self::row($key);
@@ -240,6 +299,9 @@ final class ExtensionManager
 
     public static function installUploadedFile(array $file): array
     {
+        SiteScopedOperationGate::denyUnscopedWrite(
+            Database::connection(),'extension_registry'
+        );
         $error = (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE);
         if ($error !== UPLOAD_ERR_OK) {
             throw new RuntimeException('بارگذاری بستهٔ افزونه کامل نشد.');
@@ -254,6 +316,9 @@ final class ExtensionManager
 
     public static function installArchive(string $archive): array
     {
+        SiteScopedOperationGate::denyUnscopedWrite(
+            Database::connection(),'extension_registry'
+        );
         return self::withOperationLock(static function() use ($archive): array {
         self::synchronize(true);
         if (!class_exists(ZipArchive::class)) {
@@ -328,7 +393,8 @@ final class ExtensionManager
             $manifest = ExtensionManifest::fromDirectory($package);
             $errors = $manifest->compatibilityErrors(self::activeVersions());
             if ($errors !== []) throw new RuntimeException(implode('؛ ', $errors));
-            if ($manifest->type() === 'module') ExtensionRuntime::validateModule($manifest);
+            // A ZIP may be staged as inactive after static trust checks,
+            // but its PHP bootstrap must NEVER run in CMS during install.
             $trust = MarketplacePackage::verifyDirectory(Database::connection(),$package,$manifest,(string)(getenv('APP_HOST')?:($_SERVER['HTTP_HOST']??'')));
 
 
@@ -522,7 +588,7 @@ final class ExtensionManager
     private static function activeVersions(): array
     {
         $versions = [];
-        foreach (Database::connection()->query("SELECT extension_key,version FROM cms_extensions WHERE status='active'")->fetchAll() as $row) {
+        foreach (Database::connection()->query("SELECT extension_key,version FROM cms_extensions WHERE status='active' AND source='bundled'")->fetchAll() as $row) {
             $versions[$row['extension_key']] = $row['version'];
         }
         return $versions;
@@ -564,7 +630,8 @@ final class ExtensionManager
         $rows = $pdo->query("SELECT * FROM cms_extensions WHERE extension_type='theme' AND status<>'removed' ORDER BY extension_key")->fetchAll();
         $valid = [];
         foreach ($rows as $row) {
-            if (($row['status'] ?? '') === 'broken') continue;
+            if (($row['source']??'')!=='bundled' ||
+                ($row['status'] ?? '') === 'broken') continue;
             try {
                 $manifest = self::manifestForRow($row);
                 $valid[$manifest->key()] = $row;

@@ -10,9 +10,18 @@ final class ExtensionManifest
 {
     public const FILE = 'vazin-extension.json';
     public const TYPES = ['theme', 'module'];
-    private const KEYS = [
+    public const CATEGORIES = [
+        'general', 'seo', 'commerce', 'lms', 'booking', 'forms',
+        'publishing', 'security', 'integration', 'theme', 'migration',
+    ];
+    private const KEYS_V1 = [
         'schema', 'key', 'type', 'name', 'version', 'description', 'author',
         'requires', 'bootstrap', 'views', 'admin_navigation', 'default_status', 'protected',
+    ];
+    private const KEYS_V2 = [
+        'schema', 'key', 'type', 'name', 'version', 'description', 'author', 'category',
+        'requires', 'bootstrap', 'views', 'admin_navigation', 'default_status', 'protected',
+        'permissions', 'outbound_hosts', 'site_scoped', 'content_types',
     ];
 
     private function __construct(private array $data, private string $directory)
@@ -40,12 +49,15 @@ final class ExtensionManifest
             throw new RuntimeException('manifest افزونه باید یک شیء JSON باشد.');
         }
 
-        $unknown = array_diff(array_keys($data), self::KEYS);
+        $schema = $data['schema'] ?? null;
+        if (!in_array($schema, [1, 2], true)) {
+            throw new RuntimeException('نسخهٔ schema افزونه پشتیبانی نمی‌شود.');
+        }
+
+        $allowedKeys = $schema === 2 ? self::KEYS_V2 : self::KEYS_V1;
+        $unknown = array_diff(array_keys($data), $allowedKeys);
         if ($unknown !== []) {
             throw new RuntimeException('کلید ناشناخته در manifest: ' . implode(', ', $unknown));
-        }
-        if (($data['schema'] ?? null) !== 1) {
-            throw new RuntimeException('نسخهٔ schema افزونه پشتیبانی نمی‌شود.');
         }
 
         $type = ($data['type'] ?? '') === 'plugin' ? 'module' : (string) ($data['type'] ?? '');
@@ -119,7 +131,7 @@ final class ExtensionManifest
         }
         $normalizedNavigation = [];
         foreach ($navigation as $item) {
-            if (!is_array($item) || array_diff(array_keys($item), ['label','path','order']) !== []) {
+            if (!is_array($item) || array_diff(array_keys($item), ['label', 'path', 'order']) !== []) {
                 throw new RuntimeException('ساختار منوی مدیریت ماژول معتبر نیست.');
             }
             $label = trim((string) ($item['label'] ?? ''));
@@ -139,7 +151,7 @@ final class ExtensionManifest
         }
 
         $normalized = [
-            'schema' => 1,
+            'schema' => $schema,
             'key' => $key,
             'type' => $type,
             'name' => $name,
@@ -154,6 +166,51 @@ final class ExtensionManifest
             'protected' => (bool) ($data['protected'] ?? false),
         ];
 
+        if ($schema === 2) {
+            $category = strtolower(trim((string) ($data['category'] ?? ($type === 'theme' ? 'theme' : 'general'))));
+            if (!in_array($category, self::CATEGORIES, true)) {
+                throw new RuntimeException('دسته‌بندی افزونه در manifest معتبر نیست.');
+            }
+            $rawPerms = $data['permissions'] ?? [];
+            if (!is_array($rawPerms) || ($type !== 'module' && $rawPerms !== [])) {
+                throw new RuntimeException('بخش permissions فقط برای ماژول و به‌صورت آرایه مجاز است.');
+            }
+            $permissions = CapabilityGuard::validateList(array_values($rawPerms));
+
+            $rawHosts = $data['outbound_hosts'] ?? [];
+            if (!is_array($rawHosts)) {
+                throw new RuntimeException('بخش outbound_hosts باید آرایه‌ای از دامنه‌ها باشد.');
+            }
+            $outboundHosts = [];
+            foreach ($rawHosts as $h) {
+                if (!is_string($h)) {
+                    throw new RuntimeException('دامنه outbound_hosts معتبر نیست.');
+                }
+                $h = strtolower(trim($h));
+                if (preg_match('/^[a-z0-9][a-z0-9.-]{1,190}\.[a-z]{2,24}$/', $h) !== 1 || str_contains($h, '..')) {
+                    throw new RuntimeException('دامنه outbound_hosts معتبر نیست: ' . $h);
+                }
+                $outboundHosts[$h] = true;
+            }
+            if ($outboundHosts !== [] && !in_array('http:outbound', $permissions, true)) {
+                throw new RuntimeException('تعریف outbound_hosts نیازمند مجوز http:outbound در permissions است.');
+            }
+
+            $contentTypes = $data['content_types'] ?? [];
+            if (!is_array($contentTypes) || ($type !== 'module' && $contentTypes !== [])) {
+                throw new RuntimeException('تعریف content_types معتبر نیست.');
+            }
+            if ($contentTypes !== [] && !in_array('content:types', $permissions, true)) {
+                throw new RuntimeException('ثبت content_types نیازمند مجوز content:types در permissions است.');
+            }
+
+            $normalized['category'] = $category;
+            $normalized['permissions'] = $permissions;
+            $normalized['outbound_hosts'] = array_keys($outboundHosts);
+            $normalized['site_scoped'] = (bool) ($data['site_scoped'] ?? false);
+            $normalized['content_types'] = $contentTypes;
+        }
+
         $manifest = new self($normalized, $root);
         if ($bootstrap !== '') {
             $manifest->resolve($bootstrap);
@@ -164,6 +221,7 @@ final class ExtensionManifest
         return $manifest;
     }
 
+    public function schema(): int { return (int) ($this->data['schema'] ?? 1); }
     public function key(): string { return $this->data['key']; }
     public function type(): string { return $this->data['type']; }
     public function name(): string { return $this->data['name']; }

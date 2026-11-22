@@ -42,9 +42,13 @@ final class RuntimePaths
     private static function directory(string $variable, string $fallback): string
     {
         $configured = getenv($variable);
-        $path = is_string($configured) && $configured !== '' ? $configured : $fallback;
+        $isDefault = !is_string($configured) || $configured === '';
+        $path = !$isDefault ? $configured : $fallback;
         if (strlen($path) > 4096 || preg_match('/[\x00-\x1f\x7f]/', $path) === 1) {
             throw new RuntimeException('Invalid CMS runtime path');
+        }
+        if ($isDefault && !is_dir($path) && !is_link($path)) {
+            @mkdir($path, 0750, true);
         }
         $resolved = realpath($path);
         if ($resolved === false || !is_dir($resolved) || is_link($resolved)) {

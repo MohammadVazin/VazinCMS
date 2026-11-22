@@ -1,6 +1,11 @@
 <?php
 declare(strict_types=1);
 require dirname(__DIR__).'/src/bootstrap.php';
+// Legacy scheduler has global side effects. Reject scoped DBs BEFORE
+// touching the global extension registry or dispatching any worker.
+VazinCMS\SiteScopedOperationGate::denyUnscopedWrite(
+    VazinCMS\Database::connection(),'legacy_scheduler'
+);
 $publication=VazinCMS\ExtensionManager::isActive('module','publishing')
     ? VazinCMS\PublicationService::processDue()
     : ['status'=>'module_disabled'];

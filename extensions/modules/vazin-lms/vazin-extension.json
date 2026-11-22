@@ -1,0 +1,35 @@
+{
+  "schema": 2,
+  "key": "vazin-lms",
+  "type": "module",
+  "name": "آکادمی و آموزش آنلاین (Vazin LMS)",
+  "version": "11.0.0",
+  "description": "سیستم مدیریت یادگیری و آموزشگاه آنلاین شامل دوره‌ها، سرفصل‌ها، دروس ویدیویی/متنی، ثبت‌نام دانشجویان، ردیابی پیشرفت و صدور گواهی پایان دوره.",
+  "author": "Vazin Online",
+  "category": "lms",
+  "requires": {
+    "php": ">=8.2.0",
+    "vazincms": ">=11.0.0",
+    "extensions": {}
+  },
+  "permissions": [
+    "routes:public",
+    "routes:admin",
+    "routes:api",
+    "blocks:register",
+    "db:isolated",
+    "settings:manage",
+    "hooks:listen"
+  ],
+  "site_scoped": true,
+  "admin_navigation": [
+    {
+      "label": "دوره‌ها و آموزشگاه (LMS)",
+      "path": "/admin/lms",
+      "order": 30
+    }
+  ],
+  "bootstrap": "bootstrap.php",
+  "default_status": "active",
+  "protected": false
+}

@@ -8,16 +8,16 @@ final class Access
     {
         return [
             'customers' => 'مشتریان و پروفایل‌ها',
-            'catalog' => 'محصولات و تخفیف‌ها',
+            'catalog' => 'محصولات، دوره‌ها و تخفیف‌ها',
             'sales' => 'سفارش‌ها و فاکتورها',
-            'services' => 'سرویس‌ها و تمدیدها',
-            'support' => 'تیکت‌ها',
+            'services' => 'سرویس‌ها، رزروها و تمدیدها',
+            'support' => 'تیکت‌ها و فرم‌ها',
             'finance' => 'کیف پول، پرداخت و مالیات',
             'notifications' => 'اعلان‌ها',
             'audit' => 'گزارش رویدادها',
-            'system' => 'وضعیت سامانه',
-            'content' => 'محتوا و سفر',
-            'telegram' => 'Telegram، دستیار و رزرو',
+            'system' => 'وضعیت سامانه و ماژول‌ها',
+            'content' => 'محتوا، صفحات و رسانه',
+            'telegram' => 'کانال‌ها و دستیار Telegram',
         ];
     }
 
@@ -51,12 +51,13 @@ final class Access
     {
         $map = [
             '/admin/users' => 'customers', '/admin/products' => 'catalog', '/admin/discounts' => 'catalog',
+            '/admin/commerce' => 'sales', '/admin/lms' => 'catalog', '/admin/booking' => 'services',
+            '/admin/forms' => 'support', '/admin/content-types' => 'content', '/admin/blueprints' => 'system',
             '/admin/orders' => 'sales', '/admin/invoices' => 'sales', '/admin/services' => 'services',
             '/admin/renewals' => 'services', '/admin/tickets' => 'support', '/admin/wallets' => 'finance',
             '/admin/finance' => 'finance', '/admin/taxes' => 'finance', '/admin/notifications' => 'notifications',
             '/admin/audit' => 'audit', '/admin/system' => 'system',
-            '/admin/travel' => 'content', '/admin/visa-orders' => 'sales', '/admin/travel-visa-orders' => 'sales',
-            '/admin/telegram' => 'telegram', '/admin/travel-alerts' => 'telegram',
+            '/admin/telegram' => 'telegram',
         ];
         foreach ($map as $prefix => $permission) {
             if ($path === $prefix || str_starts_with($path, $prefix . '/')) { self::require($permission); return; }

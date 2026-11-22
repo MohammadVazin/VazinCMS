@@ -3,13 +3,17 @@ declare(strict_types=1);
 
 namespace VazinCMS\Controllers;
 
-use VazinCMS\{Audit,Auth,BlockEditor,CacheStore,ContentMigrationService,ContentModel,Database,ExtensionRuntime,MediaArchiveImporter,RedirectManager,SearchIndex,Security,View};
+use VazinCMS\{Audit,Auth,BlockEditor,CacheStore,ContentMigrationService,ContentModel,Database,ExtensionRuntime,MediaArchiveImporter,RedirectManager,SearchIndex,Security,SiteContext,SiteScopeMode,SiteScopedWordPressImporter,View};
 
 final class ContentMigrationController
 {
     public function index(): void
     {
         $user = Auth::requireUser(['owner','admin']);
+        if (SiteScopeMode::active(Database::connection())) {
+            $this->scopedWordPress($user);
+            return;
+        }
         $error = null; $message = null; $preview = $_SESSION['content_migration_preview'] ?? null;
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             Security::verifyCsrf();
@@ -36,6 +40,62 @@ final class ContentMigrationController
             } catch (\Throwable $e) { $error = $e instanceof \InvalidArgumentException ? $e->getMessage() : 'انتقال محتوا انجام نشد.'; }
         }
         View::render('content-migration', compact('user','error','message','preview'));
+    }
+
+    /** The legacy ZIP/JSON import writes global media/terms; never run it
+     * against a tenant-scoped database. Only the WXR draft-only path is
+     * exposed here, and only after its separate ledger migration is ready. */
+    private function scopedWordPress(array $user): void
+    {
+        $error=null;
+        $message=null;
+        $stats=null;
+        if (($_SERVER['REQUEST_METHOD']??'GET')==='POST') {
+            Security::verifyCsrf();
+            try {
+                if (($_POST['action']??'')!=='wordpress_wxr') {
+                    throw new \InvalidArgumentException('در این مرحله فقط WXR وردپرس پذیرفته می‌شود.');
+                }
+                $file=$_FILES['wordpress_wxr']??null;
+                if (!is_array($file) || ($file['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_OK
+                    || !is_uploaded_file((string)($file['tmp_name']??''))
+                    || !preg_match('/\.(?:xml|wxr)$/i',(string)($file['name']??''))) {
+                    throw new \InvalidArgumentException('فایل XML/WXR معتبر انتخاب کنید.');
+                }
+                $stats=SiteScopedWordPressImporter::importFile(
+                    Database::connection(),
+                    (string)$file['tmp_name'],
+                    SiteContext::id(),
+                    (int)$user['id'],
+                    ['locale'=>(string)($_POST['locale']??'fa')]
+                );
+                Audit::log('cms.wordpress_wxr_drafts_imported',
+                    'WXR وردپرس در سایت جاری به پیش‌نویس منتقل شد',
+                    (int)$user['id'],
+                    ['site_id'=>SiteContext::id(),'job_id'=>$stats['job_id'],
+                     'created'=>$stats['created'],'replayed'=>$stats['replayed']]);
+                $message=(int)$stats['created'].' پیش‌نویس ثبت شد؛ '.
+                    (int)$stats['attachments_skipped'].
+                    ' پیوست دانلود نشد. انتشار نیازمند تأیید مدیر است.';
+            } catch (\Throwable $e) {
+                $messageKey=$e->getMessage();
+                if ($messageKey==='tenant_wxr_ledger_schema_unavailable') {
+                    http_response_code(409);
+                    $error='ساختار امن واردکننده سایت هنوز نصب و تأیید نشده است.';
+                } elseif($messageKey==='tenant_access_denied') {
+                    http_response_code(403);
+                    $error='برای ورود محتوا به این سایت مجوز ندارید.';
+                } elseif($e instanceof \InvalidArgumentException
+                    || str_starts_with($messageKey,'tenant_wxr_')) {
+                    http_response_code(400);
+                    $error='ساختار فایل یا درخواست واردکردن معتبر نیست.';
+                } else {
+                    http_response_code(409);
+                    $error='ورود محتوا انجام نشد. هیچ فایل خارجی دانلود نشد.';
+                }
+            }
+        }
+        View::render('content-migration-wxr',compact('user','error','message','stats'));
     }
 
     private function commit(array $user, mixed $preview): string

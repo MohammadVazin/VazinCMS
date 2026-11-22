@@ -19,7 +19,11 @@ try{
  $uiScript=(string)file_get_contents($root.'/public/assets/telegram-assistant-1090.js');
  $check(str_contains($uiScript,"typeof priceValue === 'object'")&&!str_contains($uiScript,'service?.price?.amount ?? service?.price_amount ?? service?.price'),'Price-on-request UI can render an object value');
  $pdo=Database::connection();$pdo->exec((string)file_get_contents($root.'/database/schema-sqlite.sql'));
- $migrations=glob($root.'/database/migrations/*-sqlite.sql')?:[];usort($migrations,static fn(string$a,string$b):int=>version_compare(explode('-',basename($a))[0],explode('-',basename($b))[0]));
+ $migrations=glob($root.'/database/migrations/*-sqlite.sql')?:[];
+ // Legacy single-site fixture; tenant schema 10.31 has its own E2E tests.
+ $migrations=array_values(array_filter($migrations,
+     static fn(string $f):bool=>version_compare(explode('-',basename($f))[0],'10.31.0','<')));
+ usort($migrations,static fn(string$a,string$b):int=>version_compare(explode('-',basename($a))[0],explode('-',basename($b))[0]));
  foreach($migrations as$migration){$version=explode('-',basename($migration))[0];$seen=$pdo->prepare('SELECT 1 FROM schema_migrations WHERE version=:version');$seen->execute(['version'=>$version]);if(!$seen->fetchColumn())$pdo->exec((string)file_get_contents($migration));}
  $check((bool)$pdo->query("SELECT 1 FROM schema_migrations WHERE version='10.9.0'")->fetchColumn(),'10.9 migration missing');
  $columns=$pdo->query('PRAGMA table_info(telegram_miniapp_sessions)')->fetchAll();$check(in_array('contact_id',array_column($columns,'name'),true),'Mini App contact link missing');

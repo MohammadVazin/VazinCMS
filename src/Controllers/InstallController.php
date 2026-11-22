@@ -66,8 +66,14 @@ final class InstallController
             usort($files, static fn(string $left, string $right): int => version_compare(
                 explode('-', basename($left))[0], explode('-', basename($right))[0]
             ));
+            $preTenantSynced = false;
             foreach ($files as $file) {
                 $version = explode('-', basename($file))[0];
+                if (!$preTenantSynced && version_compare($version, '10.31.0', '>=')) {
+                    \VazinCMS\ExtensionManager::reset();
+                    \VazinCMS\ExtensionManager::synchronize(true);
+                    $preTenantSynced = true;
+                }
                 $done = $pdo->prepare('SELECT 1 FROM schema_migrations WHERE version=:version');
                 $done->execute(['version' => $version]);
                 if ($done->fetchColumn()) continue;
@@ -78,6 +84,10 @@ final class InstallController
                     ? 'INSERT OR IGNORE INTO schema_migrations(version) VALUES(:version)'
                     : 'INSERT INTO schema_migrations(version) VALUES(:version) ON CONFLICT(version) DO NOTHING');
                 $mark->execute(['version' => $version]);
+            }
+            if (!$preTenantSynced) {
+                \VazinCMS\ExtensionManager::reset();
+                \VazinCMS\ExtensionManager::synchronize(true);
             }
 
             $product = $pdo->prepare(

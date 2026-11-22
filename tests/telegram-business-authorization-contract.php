@@ -21,7 +21,11 @@ $update=static fn(string$opaque,string$owner,bool$enabled=true):array=>[
 
 try{
  $pdo=Database::connection();$pdo->exec((string)file_get_contents($root.'/database/schema-sqlite.sql'));
- $migrations=glob($root.'/database/migrations/*-sqlite.sql')?:[];usort($migrations,static fn(string$a,string$b):int=>version_compare(explode('-',basename($a))[0],explode('-',basename($b))[0]));
+ $migrations=glob($root.'/database/migrations/*-sqlite.sql')?:[];
+ // Legacy single-site fixture; tenant schema 10.31 has its own E2E tests.
+ $migrations=array_values(array_filter($migrations,
+     static fn(string $f):bool=>version_compare(explode('-',basename($f))[0],'10.31.0','<')));
+ usort($migrations,static fn(string$a,string$b):int=>version_compare(explode('-',basename($a))[0],explode('-',basename($b))[0]));
  foreach($migrations as$migration){$version=explode('-',basename($migration))[0];$seen=$pdo->prepare('SELECT 1 FROM schema_migrations WHERE version=:version');$seen->execute(['version'=>$version]);if(!$seen->fetchColumn())$pdo->exec((string)file_get_contents($migration));}
  $pdo->prepare("INSERT INTO users(name,email,password_hash,role,status) VALUES('Owner','business-owner@example.test',:password,'owner','active')")->execute(['password'=>password_hash('contract-only',PASSWORD_DEFAULT)]);$ownerId=(int)$pdo->lastInsertId();
  $pdo->prepare("INSERT INTO users(name,email,password_hash,role,status) VALUES('Customer','business-customer@example.test',:password,'client','active')")->execute(['password'=>password_hash('contract-only',PASSWORD_DEFAULT)]);$customerId=(int)$pdo->lastInsertId();

@@ -1,0 +1,35 @@
+{
+  "schema": 2,
+  "key": "vazin-booking",
+  "type": "module",
+  "name": "نوبت‌دهی و رزرواسیون خدمات (Vazin Booking)",
+  "version": "11.0.0",
+  "description": "سیستم رزرو آنلاین وقت مشاوره، کلینیک و خدمات تخصصی همراه با مدیریت ظرفیت اسلات‌های زمانی، کد پیگیری و بلوک رزرواسیون در صفحه‌ساز.",
+  "author": "Vazin Online",
+  "category": "booking",
+  "requires": {
+    "php": ">=8.2.0",
+    "vazincms": ">=11.0.0",
+    "extensions": {}
+  },
+  "permissions": [
+    "routes:public",
+    "routes:admin",
+    "routes:api",
+    "blocks:register",
+    "db:isolated",
+    "settings:manage",
+    "hooks:listen"
+  ],
+  "site_scoped": true,
+  "admin_navigation": [
+    {
+      "label": "نوبت‌دهی و رزروها",
+      "path": "/admin/booking",
+      "order": 40
+    }
+  ],
+  "bootstrap": "bootstrap.php",
+  "default_status": "active",
+  "protected": false
+}
