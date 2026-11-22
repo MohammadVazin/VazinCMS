@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/BookingService.php';
 
-use VazinCMS\{Access, ModuleContext, Security};
+use VazinCMS\{Access, ModuleContext, Security, UiLocale, View};
 use VazinCMS\Modules\Booking\BookingService;
 
 return static function (ModuleContext $module): void {
@@ -29,25 +29,49 @@ return static function (ModuleContext $module): void {
     $module->api('GET', 'services', static fn(): array => ['items' => $service()->listServices(true)]);
     $module->api('POST', 'reserve', static fn(array $input): array => $service()->reserve($input));
 
-    $module->get('/booking', static function () use ($service, $esc): void {
-        $services = $service()->listServices(true);
-        header('Content-Type: text/html; charset=utf-8');
-        echo '<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><title>رزرو نوبت</title></head><body><main><h1>سامانه رزرو آنلاین</h1>';
-        foreach ($services as $s) {
-            echo '<article><h2>' . $esc((string) $s['title']) . '</h2><p>' . $esc((string) $s['description']) . '</p></article>';
+    $module->any('/booking', static function () use ($service): void {
+        $svc = $service();
+        $bookingReceipt = null;
+        $bookingError = null;
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+            Security::verifyCsrf();
+            try {
+                $bookingReceipt = $svc->reserve($_POST);
+            } catch (\Throwable $e) {
+                $bookingError = $e->getMessage();
+            }
         }
-        echo '</main></body></html>';
+        View::renderPublic('booking', [
+            'locale' => UiLocale::detect(),
+            'meta' => ['title' => 'رزرو آنلاین نوبت', 'description' => 'سامانه نوبت‌دهی و رزرو خدمات'],
+            'menu' => [],
+            'services' => $svc->listServices(true),
+            'bookingReceipt' => $bookingReceipt,
+            'bookingError' => $bookingError,
+        ]);
     });
 
     $module->any('/admin/booking', static function () use ($service): void {
-        Access::require('services');
+        $user = Access::require('services');
         $svc = $service();
+        $message = '';
+        $error = '';
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             Security::verifyCsrf();
-            $svc->createService($_POST);
+            try {
+                $svc->createService($_POST);
+                $message = 'خدمت جدید ذخیره شد.';
+            } catch (\Throwable $e) {
+                $error = $e->getMessage();
+            }
         }
-        $res = $svc->listReservations(50);
-        header('Content-Type: text/html; charset=utf-8');
-        echo '<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><title>مدیریت نوبت‌ها</title></head><body><main><h1>نوبت‌های ثبت‌شده (' . count($res) . ')</h1></main></body></html>';
+        View::render('booking-admin', [
+            'title' => 'نوبت‌دهی و رزروها',
+            'user' => $user,
+            'services' => $svc->listServices(false),
+            'reservations' => $svc->listReservations(50),
+            'message' => $message,
+            'error' => $error,
+        ]);
     });
 };

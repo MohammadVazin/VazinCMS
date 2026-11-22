@@ -1,0 +1,34 @@
+{
+  "schema": 2,
+  "key": "vazin-comments",
+  "type": "module",
+  "name": "نظرات، پرسش‌وپاسخ و امتیازدهی (Vazin Comments)",
+  "version": "11.1.0",
+  "description": "سیستم جامع دیدگاه‌ها و امتیازدهی ستاره‌ای (۱ تا ۵) برای نوشته‌ها، محصولات و دوره‌ها به همراه ضداسپم Honeypot و صف تأیید مدیریت.",
+  "author": "Vazin Online",
+  "category": "publishing",
+  "requires": {
+    "php": ">=8.2.0",
+    "vazincms": ">=11.0.0",
+    "extensions": {}
+  },
+  "permissions": [
+    "routes:admin",
+    "routes:api",
+    "blocks:register",
+    "db:isolated",
+    "settings:manage",
+    "hooks:listen"
+  ],
+  "site_scoped": true,
+  "admin_navigation": [
+    {
+      "label": "دیدگاه‌ها و امتیازها",
+      "path": "/admin/comments",
+      "order": 55
+    }
+  ],
+  "bootstrap": "bootstrap.php",
+  "default_status": "active",
+  "protected": false
+}

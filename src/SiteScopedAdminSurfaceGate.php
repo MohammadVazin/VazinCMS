@@ -3,9 +3,6 @@ declare(strict_types=1);
 
 namespace VazinCMS;
 
-/**
- * Audited admin route allowlist for site-scoped installations.
- */
 final class SiteScopedAdminSurfaceGate
 {
     private const AUDITED = [
@@ -28,6 +25,9 @@ final class SiteScopedAdminSurfaceGate
         '/admin/lms' => true,
         '/admin/booking' => true,
         '/admin/forms' => true,
+        '/admin/comments' => true,
+        '/admin/analytics' => true,
+        '/admin/memberships' => true,
     ];
 
     public static function allowed(string $path): bool

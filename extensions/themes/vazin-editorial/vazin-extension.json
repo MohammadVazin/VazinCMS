@@ -1,0 +1,22 @@
+{
+  "schema": 2,
+  "key": "vazin-editorial",
+  "type": "theme",
+  "name": "قالب تحریریه و رسانه (Vazin Editorial)",
+  "version": "11.1.0",
+  "description": "قالب خوانا، تایپوگرافی‌محور و فوق‌سریع ویژه پرتال‌های خبری، مجلات دیجیتال و وبلاگ‌های تخصصی (پشتیبانی کامل RTL/LTR و حالت تیره).",
+  "author": "Vazin Online",
+  "category": "theme",
+  "requires": {
+    "php": ">=8.2.0",
+    "vazincms": ">=11.0.0",
+    "extensions": {}
+  },
+  "views": {
+    "head": "views/head.php",
+    "foot": "views/foot.php"
+  },
+  "site_scoped": true,
+  "default_status": "inactive",
+  "protected": false
+}

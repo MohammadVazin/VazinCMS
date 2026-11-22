@@ -6,13 +6,6 @@ namespace VazinCMS;
 use PDO;
 use RuntimeException;
 
-/**
- * Audited module & theme runtime policy for multi-tenant (site-scoped) mode.
- *
- * Only bundled modules that either have audited site-scoped controllers (seo, content-migration)
- * OR use VazinCMS v11 Schema v2 isolated ModuleDatabase & tenant-safe capabilities
- * (vazin-commerce, vazin-lms, vazin-booking, vazin-forms) are permitted in scoped mode.
- */
 final class SiteScopedRuntimePolicy
 {
     private const SAFE_BUNDLED_MODULES = [
@@ -22,8 +15,15 @@ final class SiteScopedRuntimePolicy
         'vazin-lms' => true,
         'vazin-booking' => true,
         'vazin-forms' => true,
+        'vazin-comments' => true,
+        'vazin-analytics' => true,
+        'vazin-memberships' => true,
     ];
-    private const SAFE_BUNDLED_THEME = 'vazin-default';
+    private const SAFE_BUNDLED_THEMES = [
+        'vazin-default' => true,
+        'vazin-editorial' => true,
+        'vazin-storefront' => true,
+    ];
 
     public static function scopedMode(PDO $pdo): bool
     {
@@ -80,7 +80,8 @@ final class SiteScopedRuntimePolicy
 
     public static function themeAllowed(array $row): bool
     {
-        return ($row['extension_key'] ?? null) === self::SAFE_BUNDLED_THEME &&
+        $key = (string) ($row['extension_key'] ?? '');
+        return isset(self::SAFE_BUNDLED_THEMES[$key]) &&
             ($row['extension_type'] ?? null) === 'theme' &&
             ($row['source'] ?? null) === 'bundled' &&
             ($row['status'] ?? null) === 'active';

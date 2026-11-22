@@ -75,6 +75,9 @@ final class App{
      header('X-Vazin-Cache: MISS');
    }
    if(str_starts_with($path,'/admin'))Access::authorizePath($path);
+   if($method==='GET'&&!str_starts_with($path,'/admin')&&!str_starts_with($path,'/api')&&!str_starts_with($path,'/module-assets')&&!str_starts_with($path,'/theme-assets')&&!str_starts_with($path,'/uploads')){
+     ExtensionRuntime::emit('page.viewed',['path'=>$path,'referrer'=>(string)($_SERVER['HTTP_REFERER']??''),'user_agent'=>(string)($_SERVER['HTTP_USER_AGENT']??''),'ip'=>(string)($_SERVER['REMOTE_ADDR']??'')]);
+   }
    if($this->dispatchCore($path))return;
    if(ExtensionRuntime::dispatch($method,$path))return;
    $redirect=RedirectManager::resolve(Database::connection(),$path);if($redirect){http_response_code((int)$redirect['status_code']);header('Location: '.(string)$redirect['target_url']);return;}

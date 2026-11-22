@@ -1,0 +1,32 @@
+{
+  "schema": 2,
+  "key": "vazin-analytics",
+  "type": "module",
+  "name": "آنالیتیکس بومی و آمار بازدید (Vazin Analytics)",
+  "version": "11.1.0",
+  "description": "آمارگیر بومی بدون کوکی و حافظ حریم خصوصی؛ ثبت سریع بازدید صفحات، منابع ورودی و نوع دستگاه بدون نیاز به اسکریپت‌های سنگین خارجی.",
+  "author": "Vazin Online",
+  "category": "seo",
+  "requires": {
+    "php": ">=8.2.0",
+    "vazincms": ">=11.0.0",
+    "extensions": {}
+  },
+  "permissions": [
+    "routes:admin",
+    "routes:api",
+    "db:isolated",
+    "hooks:listen"
+  ],
+  "site_scoped": true,
+  "admin_navigation": [
+    {
+      "label": "آمار و آنالیتیکس",
+      "path": "/admin/analytics",
+      "order": 15
+    }
+  ],
+  "bootstrap": "bootstrap.php",
+  "default_status": "active",
+  "protected": false
+}

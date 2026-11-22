@@ -39,16 +39,19 @@ try {
 
     ExtensionManager::reset();
     $extensions = ExtensionManager::all();
-    $check(count($extensions) === 11, 'bundled extension discovery failed');
-    $check(count(ExtensionManager::activeModules()) === 10, 'bundled modules are not active');
+    $check(count($extensions) === 16, 'bundled extension discovery failed');
+    $check(count(ExtensionManager::activeModules()) === 13, 'bundled modules are not active');
     $check(ExtensionManager::isActive('theme', 'vazin-default'), 'bundled theme is not active');
     $navigation=ExtensionManager::adminNavigation();
-    $check(count($navigation) === 11, 'module-owned admin navigation failed');
+    $check(count($navigation) === 14, 'module-owned admin navigation failed');
     $check(in_array('/admin/content-migration',array_column($navigation,'path'),true),'Content migration navigation missing');
     $check(in_array('/admin/commerce',array_column($navigation,'path'),true),'Commerce navigation missing');
     $check(in_array('/admin/lms',array_column($navigation,'path'),true),'LMS navigation missing');
     $check(in_array('/admin/booking',array_column($navigation,'path'),true),'Booking navigation missing');
     $check(in_array('/admin/forms',array_column($navigation,'path'),true),'Forms navigation missing');
+    $check(in_array('/admin/comments',array_column($navigation,'path'),true),'Comments navigation missing');
+    $check(in_array('/admin/analytics',array_column($navigation,'path'),true),'Analytics navigation missing');
+    $check(in_array('/admin/memberships',array_column($navigation,'path'),true),'Memberships navigation missing');
     $check(in_array('/admin/telegram/assistant',array_column($navigation,'path'),true),'Telegram assistant navigation missing');
 
     $moduleRoot = $runtime . '/extensions/modules/contract-module';

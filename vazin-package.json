@@ -2,7 +2,7 @@
   "schema": 2,
   "product": "VazinCMS",
   "type": "vazincms",
-  "version": "11.0.0",
+  "version": "11.1.0",
   "minimum_php": "8.2",
   "entrypoint": "deploy/install.sh",
   "upgrade_only": false,
@@ -20,7 +20,8 @@
   "supported_current_versions": [
     "10.30.2",
     "10.30.3",
-    "11.0.0"
+    "11.0.0",
+    "11.1.0"
   ],
   "release_channel": "stable",
   "risk_level": "low",
@@ -31,6 +32,6 @@
     "vazinpay": ">=21.4.1"
   },
   "release_notes": [
-    "VazinCMS 11.0.0: Pure Micro-Kernel Open Core architecture, Capability-Based Module System (Schema v2), Isolated Module Database, Dynamic Content Engine, Universal Site Blueprints, Built-in Commerce/LMS/Booking/Forms/SEO modules, Page Cache, and Standalone CLI."
+    "VazinCMS 11.1.0: Full Integrated Admin & Public UI, 7 Official Schema v2 Modules (Commerce, LMS, Booking, Forms, Comments & Star Reviews, Privacy-First Analytics, VIP Memberships), 3 Bundled Themes (Default, Editorial, Storefront), 1-Click Web Setup Blueprint Wizard, and Official Portal Rollout."
   ]
 }

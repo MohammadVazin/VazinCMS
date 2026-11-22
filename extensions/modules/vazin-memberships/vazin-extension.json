@@ -1,0 +1,33 @@
+{
+  "schema": 2,
+  "key": "vazin-memberships",
+  "type": "module",
+  "name": "اشتراک ویژه و محتوای اعضا (Vazin Memberships)",
+  "version": "11.1.0",
+  "description": "مدیریت پلن‌های اشتراک VIP، دسترسی‌های زمان‌دار اعضا و بلوک قفل محتوا (Paywall) برای سایت‌های رسانه‌ای، آموزشی و اشتراکی.",
+  "author": "Vazin Online",
+  "category": "commerce",
+  "requires": {
+    "php": ">=8.2.0",
+    "vazincms": ">=11.0.0",
+    "extensions": {}
+  },
+  "permissions": [
+    "routes:admin",
+    "routes:api",
+    "blocks:register",
+    "db:isolated",
+    "settings:manage"
+  ],
+  "site_scoped": true,
+  "admin_navigation": [
+    {
+      "label": "اشتراک ویژه (VIP)",
+      "path": "/admin/memberships",
+      "order": 25
+    }
+  ],
+  "bootstrap": "bootstrap.php",
+  "default_status": "active",
+  "protected": false
+}

@@ -1,13 +1,46 @@
 {
-  "openapi":"3.1.0",
-  "info":{"title":"VazinCMS Developer API","version":"3.0.0"},
-  "servers":[{"url":"https://{host}","variables":{"host":{"default":"cms.vazin.online"}}}],
-  "components":{"securitySchemes":{"bearerAuth":{"type":"http","scheme":"bearer"}},"schemas":{"Error":{"type":"object","properties":{"code":{"type":"string"},"message":{"type":"string"}}}}},
-  "security":[{"bearerAuth":[]}],
-  "paths":{
-    "/api/v3/content":{"get":{"summary":"List content","responses":{"200":{"description":"OK"}}}},
-    "/api/v3/forms":{"get":{"summary":"List forms","responses":{"200":{"description":"OK"}}}},
-    "/api/v3/learn/courses":{"get":{"summary":"List courses","responses":{"200":{"description":"OK"}}}},
-    "/api/v3/connectors":{"get":{"summary":"List connectors","responses":{"200":{"description":"OK"}}}}
+  "openapi": "3.1.0",
+  "info": {
+    "title": "VazinCMS Developer API",
+    "version": "11.1.0",
+    "description": "Headless CMS API v1, Module Schema v2 Endpoints, and Enterprise Developer API v3."
+  },
+  "servers": [
+    {
+      "url": "https://{host}",
+      "variables": {
+        "host": { "default": "cms.vazin.online" }
+      }
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer" }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "code": { "type": "string" },
+          "message": { "type": "string" }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/api/v1/status": { "get": { "summary": "Micro-kernel runtime, active blocks & blueprints", "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/types": { "get": { "summary": "List public dynamic content types & field schemas", "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/entries/{type}": { "get": { "summary": "Query published entries for any content type", "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/modules/vazin-commerce/products": { "get": { "summary": "List active storefront products", "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/modules/vazin-commerce/checkout": { "post": { "summary": "Create order & gateway checkout", "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/modules/vazin-lms/courses": { "get": { "summary": "List published LMS courses", "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/modules/vazin-booking/services": { "get": { "summary": "List bookable services", "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/modules/vazin-forms/submit": { "post": { "summary": "Submit dynamic form entry", "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/modules/vazin-comments/list": { "get": { "summary": "List approved comments & average rating", "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/modules/vazin-memberships/plans": { "get": { "summary": "List VIP subscription plans", "responses": { "200": { "description": "OK" } } } },
+    "/api/v3/content": { "get": { "summary": "Authenticated content catalog", "security": [{ "bearerAuth": [] }], "responses": { "200": { "description": "OK" } } } },
+    "/api/v3/forms": { "get": { "summary": "Authenticated forms catalog", "security": [{ "bearerAuth": [] }], "responses": { "200": { "description": "OK" } } } },
+    "/api/v3/learn/courses": { "get": { "summary": "List courses", "security": [{ "bearerAuth": [] }], "responses": { "200": { "description": "OK" } } } },
+    "/api/v3/connectors": { "get": { "summary": "List connectors", "security": [{ "bearerAuth": [] }], "responses": { "200": { "description": "OK" } } } }
   }
 }

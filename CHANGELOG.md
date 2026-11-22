@@ -2,6 +2,17 @@
 
 All notable changes to **VazinCMS** are documented in this file.
 
+## [11.1.0] - 2026-11-22
+
+### Added
+- **Full Integrated Admin Workspace & Public Theme Views:** Upgraded `/install` with 1-click Site Blueprint & Default Locale wizard, added Schema v2 capability badges in `/admin/extensions`, and integrated full `View::render` / `View::renderPublic` UI across Commerce, LMS, Booking, Forms, Blueprints, and Dynamic Content Types.
+- **3 New Official Schema v2 Modules:**
+  - `vazin-comments`: Comments, Q&A, 1–5 star ratings, Honeypot anti-spam, moderation queue, and `vazin-comments/reviews` visual block.
+  - `vazin-analytics`: Cookieless privacy-first analytics engine (`/admin/analytics`) with daily rotating visitor hashing and zero client-side bloat.
+  - `vazin-memberships`: VIP subscription plans, member grants, and `vazin-memberships/paywall` gated content block.
+- **Multi-Theme Ecosystem:** Added `vazin-editorial` (news/magazine) and `vazin-storefront` (commerce/SaaS) official bundled themes alongside cleaned Open-Core `vazin-default`.
+- **Expanded OpenAPI 3.1 Specification:** Documented all `/api/v1/*` Headless & Schema v2 module endpoints.
+
 ## [11.0.0] - 2026-11-22
 
 ### Added

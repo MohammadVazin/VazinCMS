@@ -52,7 +52,8 @@ final class Access
         $map = [
             '/admin/users' => 'customers', '/admin/products' => 'catalog', '/admin/discounts' => 'catalog',
             '/admin/commerce' => 'sales', '/admin/lms' => 'catalog', '/admin/booking' => 'services',
-            '/admin/forms' => 'support', '/admin/content-types' => 'content', '/admin/blueprints' => 'system',
+            '/admin/forms' => 'support', '/admin/comments' => 'content', '/admin/analytics' => 'system',
+            '/admin/memberships' => 'sales', '/admin/content-types' => 'content', '/admin/blueprints' => 'system',
             '/admin/orders' => 'sales', '/admin/invoices' => 'sales', '/admin/services' => 'services',
             '/admin/renewals' => 'services', '/admin/tickets' => 'support', '/admin/wallets' => 'finance',
             '/admin/finance' => 'finance', '/admin/taxes' => 'finance', '/admin/notifications' => 'notifications',

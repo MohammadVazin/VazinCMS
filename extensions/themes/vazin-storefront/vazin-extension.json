@@ -1,0 +1,22 @@
+{
+  "schema": 2,
+  "key": "vazin-storefront",
+  "type": "theme",
+  "name": "قالب فروشگاهی و استارتاپی (Vazin Storefront)",
+  "version": "11.1.0",
+  "description": "قالب مدرن و تبدیل‌محور (Conversion-Focused) ویژه فروشگاه‌های اینترنتی، محصولات دیجیتال، آموزشگاه‌ها و صفحات فرود SaaS.",
+  "author": "Vazin Online",
+  "category": "theme",
+  "requires": {
+    "php": ">=8.2.0",
+    "vazincms": ">=11.0.0",
+    "extensions": {}
+  },
+  "views": {
+    "head": "views/head.php",
+    "foot": "views/foot.php"
+  },
+  "site_scoped": true,
+  "default_status": "inactive",
+  "protected": false
+}

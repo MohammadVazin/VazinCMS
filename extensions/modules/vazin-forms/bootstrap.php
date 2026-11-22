@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/FormsModuleService.php';
 
-use VazinCMS\{Access, ModuleContext, Security};
+use VazinCMS\{Access, ModuleContext, Security, View};
 use VazinCMS\Modules\Forms\FormsModuleService;
 
 return static function (ModuleContext $module): void {
@@ -49,9 +49,31 @@ return static function (ModuleContext $module): void {
     ));
 
     $module->any('/admin/forms', static function () use ($service): void {
-        Access::require('support');
-        $subs = $service()->listSubmissions(50);
-        header('Content-Type: text/html; charset=utf-8');
-        echo '<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><title>فرم‌ساز و پیام‌ها</title></head><body><main><h1>صندوق پیام‌های دریافتی (' . count($subs) . ')</h1></main></body></html>';
+        $user = Access::require('support');
+        $svc = $service();
+        $message = '';
+        $error = '';
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+            Security::verifyCsrf();
+            try {
+                $fields = json_decode((string) ($_POST['fields_json'] ?? '[]'), true);
+                $svc->saveForm(
+                    (string) ($_POST['form_key'] ?? ''),
+                    (string) ($_POST['title'] ?? ''),
+                    is_array($fields) ? $fields : [],
+                    (string) ($_POST['success_message'] ?? 'پیام شما ثبت شد.')
+                );
+                $message = 'ساختار فرم با موفقیت ذخیره شد.';
+            } catch (\Throwable $e) {
+                $error = $e->getMessage();
+            }
+        }
+        View::render('forms-admin', [
+            'title' => 'فرم‌ساز و پیام‌ها',
+            'user' => $user,
+            'submissions' => $svc->listSubmissions(50),
+            'message' => $message,
+            'error' => $error,
+        ]);
     });
 };

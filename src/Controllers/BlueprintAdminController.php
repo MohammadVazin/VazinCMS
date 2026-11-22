@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace VazinCMS\Controllers;
 
 use Throwable;
-use VazinCMS\{Auth, BlueprintManager, Database, DynamicContentService, Security};
+use VazinCMS\{Auth, BlueprintManager, Database, DynamicContentService, Security, SiteContext, SiteScopeMode, SiteScopedContentRepository, View};
 
 final class BlueprintAdminController
 {
@@ -22,34 +22,37 @@ final class BlueprintAdminController
                 $locale = (string) ($_POST['locale'] ?? 'fa');
                 $res = BlueprintManager::apply($pdo, $key, $locale, (int) ($user['id'] ?? 1));
                 $message = sprintf(
-                    'کیت سایت «%s» با موفقیت اعمال شد (%d صفحه نمونه، %d ماژول فعال).',
+                    'کیت سایت «%s» با موفقیت اعمال شد (%d صفحه آغازین، %d نوع محتوا).',
                     $res['blueprint'],
                     $res['seeded_pages'],
-                    count($res['activated_modules'])
+                    count($res['created_types'])
                 );
             } catch (Throwable $e) {
                 $error = $e->getMessage();
             }
         }
 
-        $catalog = BlueprintManager::catalog();
-        $esc = static fn(string $v): string => htmlspecialchars($v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-        $csrf = Security::csrfToken();
-
-        header('Content-Type: text/html; charset=utf-8');
-        echo '<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>کیت‌های آماده سایت | VazinCMS</title></head><body><main class="cms-admin-container"><h1>کیت‌های آماده راه‌اندازی سایت (Site Blueprints)</h1>';
-        if ($message !== '') echo '<p class="notice-ok">' . $esc($message) . '</p>';
-        if ($error !== '') echo '<p class="notice-err">' . $esc($error) . '</p>';
-        echo '<div class="vz-blueprint-grid">';
-        foreach ($catalog as $bp) {
-            echo '<article class="vz-blueprint-card"><h2>' . $esc((string) $bp['name']) . '</h2>'
-                . '<p>' . $esc((string) $bp['description']) . '</p>'
-                . '<small>ماژول‌ها: ' . $esc(implode(', ', $bp['modules'])) . '</small>'
-                . '<form method="post"><input type="hidden" name="_csrf" value="' . $esc($csrf) . '">'
-                . '<input type="hidden" name="blueprint" value="' . $esc((string) $bp['key']) . '">'
-                . '<button type="submit">اعمال کیت روی سایت</button></form></article>';
+        $currentProfile = 'corporate';
+        try {
+            if (SiteScopeMode::active($pdo)) {
+                $map = (new SiteScopedContentRepository($pdo, SiteContext::id()))->settingsMap();
+                $currentProfile = (string) ($map['site_profile'] ?? 'corporate');
+            } else {
+                $q = $pdo->query("SELECT setting_value FROM cms_settings WHERE setting_key='site_profile' LIMIT 1");
+                $currentProfile = (string) ($q->fetchColumn() ?: 'corporate');
+            }
+        } catch (Throwable) {
         }
-        echo '</div><p><a href="/admin">بازگشت به پیشخوان</a></p></main></body></html>';
+
+        $catalog = BlueprintManager::catalog();
+        View::render('blueprints', [
+            'title' => 'کیت‌های آماده سایت',
+            'user' => $user,
+            'catalog' => $catalog,
+            'currentProfile' => $currentProfile,
+            'message' => $message,
+            'error' => $error,
+        ]);
     }
 
     public function contentTypes(): void
@@ -71,7 +74,7 @@ final class BlueprintAdminController
                         'description' => (string) ($_POST['description'] ?? ''),
                         'fields' => is_array($fieldsRaw) ? $fieldsRaw : [],
                     ]);
-                    $message = 'نوع محتوای سفارشی ذخیره شد.';
+                    $message = 'نوع محتوای سفارشی با موفقیت ذخیره و در API فعال شد.';
                 } elseif ($action === 'save_entry') {
                     DynamicContentService::saveEntry(
                         $pdo,
@@ -87,15 +90,12 @@ final class BlueprintAdminController
         }
 
         $types = DynamicContentService::allTypes($pdo);
-        $esc = static fn(string $v): string => htmlspecialchars($v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-        header('Content-Type: text/html; charset=utf-8');
-        echo '<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>انواع محتوا و فیلدهای پویا | VazinCMS</title></head><body><main class="cms-admin-container"><h1>موتور انواع محتوا و فیلدهای پویا (' . count($types) . ')</h1>';
-        if ($message !== '') echo '<p class="notice-ok">' . $esc($message) . '</p>';
-        if ($error !== '') echo '<p class="notice-err">' . $esc($error) . '</p>';
-        echo '<ul>';
-        foreach ($types as $t) {
-            echo '<li><strong>' . $esc((string) $t['label']) . '</strong> (<code>' . $esc((string) $t['type_key']) . '</code>) — فیلدها: ' . count($t['fields'] ?? []) . '</li>';
-        }
-        echo '</ul><p><a href="/admin">بازگشت به پیشخوان</a></p></main></body></html>';
+        View::render('content-types', [
+            'title' => 'انواع محتوا و فیلدهای پویا',
+            'user' => $user,
+            'types' => $types,
+            'message' => $message,
+            'error' => $error,
+        ]);
     }
 }

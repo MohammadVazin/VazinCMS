@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/CommerceService.php';
 
-use VazinCMS\{Access, ModuleContext, Security, View};
+use VazinCMS\{Access, ModuleContext, Security, UiLocale, View};
 use VazinCMS\Modules\Commerce\CommerceService;
 
 return static function (ModuleContext $module): void {
@@ -52,18 +52,40 @@ return static function (ModuleContext $module): void {
         return $service()->checkout($items, $customer);
     });
 
-    $module->get('/shop', static function () use ($service, $esc): void {
-        $products = $service()->listProducts(true, 50);
-        header('Content-Type: text/html; charset=utf-8');
-        echo '<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>فروشگاه آنلاین</title></head><body><main class="vz-shop-container"><h1>فروشگاه آنلاین</h1>';
-        foreach ($products as $p) {
-            echo '<article><h2>' . $esc((string) $p['title']) . '</h2><p>' . $esc((string) $p['summary']) . '</p><strong>' . number_format((float) $p['price']) . ' ' . $esc((string) $p['currency']) . '</strong></article>';
+    $module->any('/shop', static function () use ($service): void {
+        $svc = $service();
+        $orderReceipt = null;
+        $checkoutError = null;
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+            Security::verifyCsrf();
+            try {
+                $pid = (int) ($_POST['product_id'] ?? 0);
+                $qty = max(1, (int) ($_POST['qty'] ?? 1));
+                $orderReceipt = $svc->checkout(
+                    [['product_id' => $pid, 'qty' => $qty]],
+                    [
+                        'name' => (string) ($_POST['name'] ?? ''),
+                        'email' => (string) ($_POST['email'] ?? ''),
+                        'coupon_code' => (string) ($_POST['coupon_code'] ?? ''),
+                    ]
+                );
+            } catch (\Throwable $e) {
+                $checkoutError = $e->getMessage();
+            }
         }
-        echo '</main></body></html>';
+        $products = $svc->listProducts(true, 50);
+        View::renderPublic('shop', [
+            'locale' => UiLocale::detect(),
+            'meta' => ['title' => 'فروشگاه آنلاین', 'description' => 'کاتالوگ محصولات و خرید آنلاین'],
+            'menu' => [],
+            'products' => $products,
+            'orderReceipt' => $orderReceipt,
+            'checkoutError' => $checkoutError,
+        ]);
     });
 
-    $module->any('/admin/commerce', static function () use ($service, $esc): void {
-        Access::require('sales');
+    $module->any('/admin/commerce', static function () use ($service): void {
+        $user = Access::require('sales');
         $svc = $service();
         $message = '';
         $error = '';
@@ -76,18 +98,19 @@ return static function (ModuleContext $module): void {
                     $message = 'محصول جدید با موفقیت ثبت شد.';
                 } elseif ($action === 'create_coupon') {
                     $svc->createCoupon($_POST);
-                    $message = 'کد تخفیف ثبت شد.';
+                    $message = 'کد تخفیف با موفقیت ایجاد شد.';
                 }
             } catch (\Throwable $e) {
                 $error = $e->getMessage();
             }
         }
-        $products = $svc->listProducts(false, 50);
-        $orders = $svc->listOrders(30);
-        header('Content-Type: text/html; charset=utf-8');
-        echo '<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>مدیریت فروشگاه</title></head><body><main><h1>مدیریت فروشگاه و سفارش‌ها</h1>';
-        if ($message !== '') echo '<p class="notice-ok">' . $esc($message) . '</p>';
-        if ($error !== '') echo '<p class="notice-err">' . $esc($error) . '</p>';
-        echo '<h2>محصولات (' . count($products) . ')</h2><h2>سفارش‌ها (' . count($orders) . ')</h2></main></body></html>';
+        View::render('commerce-admin', [
+            'title' => 'فروشگاه و سفارش‌ها',
+            'user' => $user,
+            'products' => $svc->listProducts(false, 50),
+            'orders' => $svc->listOrders(30),
+            'message' => $message,
+            'error' => $error,
+        ]);
     });
 };

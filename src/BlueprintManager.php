@@ -20,7 +20,7 @@ final class BlueprintManager
                 'name' => 'شرکتی، سازمانی و خدماتی',
                 'name_en' => 'Corporate & Business',
                 'description' => 'مناسب برای شرکت‌ها، استارتاپ‌ها، آژانس‌ها و معرفی خدمات با صفحه‌ساز بصری، فرم تماس و سئوی کامل.',
-                'modules' => ['seo', 'vazin-forms'],
+                'modules' => ['seo', 'vazin-forms', 'vazin-analytics'],
                 'content_types' => [
                     'service' => [
                         'label' => 'خدمت تخصصی',
@@ -65,7 +65,7 @@ final class BlueprintManager
                 'name' => 'فروشگاه اینترنتی (کالا و دیجیتال)',
                 'name_en' => 'E-Commerce Storefront',
                 'description' => 'فروشگاه کامل با کاتالوگ محصولات، مدیریت موجودی، سبد خرید، سفارش‌ها و درگاه‌های پرداخت پلاگین‌پذیر.',
-                'modules' => ['seo', 'vazin-commerce', 'vazin-forms'],
+                'modules' => ['seo', 'vazin-commerce', 'vazin-comments', 'vazin-analytics', 'vazin-forms'],
                 'content_types' => [],
                 'starter_pages' => [
                     [
@@ -88,7 +88,7 @@ final class BlueprintManager
                 'name' => 'خبری، رسانه و مجله اینترنتی',
                 'name_en' => 'News & Digital Magazine',
                 'description' => 'پرتال خبری و تحریریه چندنویسنده‌ای با دسته‌بندی موضوعی، آرشیو سریع، فیدهای استاندارد و انتشار خودکار.',
-                'modules' => ['seo', 'publishing', 'vazin-forms'],
+                'modules' => ['seo', 'publishing', 'vazin-comments', 'vazin-memberships', 'vazin-analytics', 'vazin-forms'],
                 'content_types' => [
                     'news' => [
                         'label' => 'خبر فوری',
@@ -119,7 +119,7 @@ final class BlueprintManager
                 'name' => 'آموزشگاه آنلاین و دوره‌ها (LMS)',
                 'name_en' => 'Online Academy & LMS',
                 'description' => 'پلتفرم آموزش آنلاین با مدیریت دوره‌ها، سرفصل‌ها، دروس، ثبت‌نام دانشجویان و پیگیری پیشرفت تحصیلی.',
-                'modules' => ['seo', 'vazin-lms', 'vazin-forms'],
+                'modules' => ['seo', 'vazin-lms', 'vazin-comments', 'vazin-memberships', 'vazin-analytics', 'vazin-forms'],
                 'content_types' => [],
                 'starter_pages' => [
                     [
@@ -163,7 +163,7 @@ final class BlueprintManager
                 'name' => 'نمونه‌کار، شخصی و استودیو خلاقیت',
                 'name_en' => 'Portfolio & Creative Studio',
                 'description' => 'نمایش حرفه‌ای پروژه‌ها، رزومه، گالری آثار و دریافت سفارش پروژه.',
-                'modules' => ['seo', 'vazin-forms'],
+                'modules' => ['seo', 'vazin-forms', 'vazin-analytics'],
                 'content_types' => [
                     'project' => [
                         'label' => 'پروژه و نمونه‌کار',

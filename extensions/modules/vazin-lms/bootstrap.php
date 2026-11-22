@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/LmsService.php';
 
-use VazinCMS\{Access, ModuleContext, Security};
+use VazinCMS\{Access, ModuleContext, Security, UiLocale, View};
 use VazinCMS\Modules\Lms\LmsService;
 
 return static function (ModuleContext $module): void {
@@ -41,29 +41,59 @@ return static function (ModuleContext $module): void {
         (string) ($input['student_email'] ?? '')
     ));
 
-    $module->get('/courses', static function () use ($service, $esc): void {
-        $courses = $service()->listCourses(true, 50);
-        header('Content-Type: text/html; charset=utf-8');
-        echo '<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>آکادمی آموزش آنلاین</title></head><body><main><h1>دوره‌های آموزشی</h1>';
-        foreach ($courses as $c) {
-            echo '<article><h2>' . $esc((string) $c['title']) . '</h2><p>' . $esc((string) $c['summary']) . '</p></article>';
-        }
-        echo '</main></body></html>';
-    });
-
-    $module->any('/admin/lms', static function () use ($service, $esc): void {
-        Access::require('catalog');
+    $module->any('/courses', static function () use ($service): void {
         $svc = $service();
-        $msg = '';
+        $enrollSuccess = null;
+        $enrollError = null;
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             Security::verifyCsrf();
-            $svc->createCourse($_POST);
-            $msg = 'دوره آموزشی ذخیره شد.';
+            try {
+                $svc->enroll(
+                    (int) ($_POST['course_id'] ?? 0),
+                    (string) ($_POST['student_name'] ?? ''),
+                    (string) ($_POST['student_email'] ?? '')
+                );
+                $enrollSuccess = 'ثبت‌نام شما در دوره آموزشی با موفقیت انجام شد.';
+            } catch (\Throwable $e) {
+                $enrollError = $e->getMessage();
+            }
         }
-        $courses = $svc->listCourses(false, 50);
-        header('Content-Type: text/html; charset=utf-8');
-        echo '<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><title>مدیریت آموزشگاه</title></head><body><main><h1>مدیریت دوره‌ها (' . count($courses) . ')</h1>';
-        if ($msg !== '') echo '<p>' . $esc($msg) . '</p>';
-        echo '</main></body></html>';
+        View::renderPublic('courses', [
+            'locale' => UiLocale::detect(),
+            'meta' => ['title' => 'دوره‌های آموزشی', 'description' => 'آکادمی آموزش آنلاین'],
+            'menu' => [],
+            'courses' => $svc->listCourses(true, 50),
+            'enrollSuccess' => $enrollSuccess,
+            'enrollError' => $enrollError,
+        ]);
+    });
+
+    $module->any('/admin/lms', static function () use ($service): void {
+        $user = Access::require('catalog');
+        $svc = $service();
+        $message = '';
+        $error = '';
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+            Security::verifyCsrf();
+            try {
+                $action = (string) ($_POST['action'] ?? 'create_course');
+                if ($action === 'add_lesson') {
+                    $svc->addLesson((int) ($_POST['course_id'] ?? 0), $_POST);
+                    $message = 'درس جدید به سرفصل دوره اضافه شد.';
+                } else {
+                    $svc->createCourse($_POST);
+                    $message = 'دوره آموزشی جدید منتشر شد.';
+                }
+            } catch (\Throwable $e) {
+                $error = $e->getMessage();
+            }
+        }
+        View::render('lms-admin', [
+            'title' => 'مدیریت آموزشگاه (LMS)',
+            'user' => $user,
+            'courses' => $svc->listCourses(false, 50),
+            'message' => $message,
+            'error' => $error,
+        ]);
     });
 };

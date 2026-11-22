@@ -5,7 +5,7 @@ umask 077
 
 [[ $EUID -eq 0 ]] || { echo 'Run as root.' >&2; exit 1; }
 SOURCE="$(cd "$(dirname "$0")/.." && pwd -P)"
-NEW_VERSION='11.0.0'
+NEW_VERSION='11.1.0'
 OLD_VERSION='10.30.2'
 STATE_BASE='/var/lib/vazincms-deploy'
 RUNTIME_BASE='/var/lib/vazincms-runtime'
@@ -347,7 +347,7 @@ python3 "$DURABLE_HELPER" swap "$STATE_ROOT" "$SITE_ROOT" "$OLD_VERSION" "$NEW_V
 as_www php "$SITE_ROOT/scripts/migrate.php"
 as_www php "$SITE_ROOT/scripts/extensions.php" sync
 as_www php "$SITE_ROOT/scripts/configure-site-profile.php"
-as_www php -r 'require $argv[1]."/src/bootstrap.php";$pdo=VazinCMS\Database::connection();if(!$pdo->query("SELECT 1")->fetchColumn()||VazinCMS\Version::current()!=="11.0.0")exit(1);' "$SITE_ROOT"
+as_www php -r 'require $argv[1]."/src/bootstrap.php";$pdo=VazinCMS\Database::connection();if(!$pdo->query("SELECT 1")->fetchColumn()||VazinCMS\Version::current()!=="11.1.0")exit(1);' "$SITE_ROOT"
 nginx -t
 systemctl start nginx
 health "$NEW_VERSION" || { systemctl status nginx --no-pager >&2 || true; false; }

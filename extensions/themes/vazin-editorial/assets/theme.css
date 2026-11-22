@@ -1,0 +1,14 @@
+:root {
+  --vz-primary: #9b2c2c;
+  --vz-editorial-max: 860px;
+}
+body.vz-editorial-theme {
+  line-height: 1.95;
+  letter-spacing: 0;
+}
+body.vz-editorial-theme .travel-header {
+  border-bottom: 2px solid currentColor;
+}
+body.vz-editorial-theme article {
+  max-width: var(--vz-editorial-max);
+}

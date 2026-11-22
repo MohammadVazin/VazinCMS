@@ -3,9 +3,6 @@ declare(strict_types=1);
 
 namespace VazinCMS;
 
-/**
- * Integration routing boundary for site-scoped schemas.
- */
 final class SiteScopedIntegrationSurfaceGate
 {
     private const SITE_SAFE = [
@@ -31,7 +28,7 @@ final class SiteScopedIntegrationSurfaceGate
         if (preg_match('#^/api/v1/entries/[a-z0-9-]+$#', $path) === 1) {
             return true;
         }
-        if (preg_match('#^/api/v1/modules/(vazin-commerce|vazin-lms|vazin-booking|vazin-forms)(?:/[a-z0-9/_-]+)?$#', $path) === 1) {
+        if (preg_match('#^/api/v1/modules/(vazin-commerce|vazin-lms|vazin-booking|vazin-forms|vazin-comments|vazin-analytics|vazin-memberships)(?:/[a-z0-9/_-]+)?$#', $path) === 1) {
             return true;
         }
         return false;

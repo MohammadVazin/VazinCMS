@@ -19,14 +19,14 @@ sort($expectedKeys);
 $actualKeys = array_keys($manifest);
 sort($actualKeys);
 $check($actualKeys === $expectedKeys, 'Package manifest keys are not exact.');
-$check(($manifest['version'] ?? null) === '11.0.0', 'Manifest version must be 11.0.0.');
+$check(($manifest['version'] ?? null) === '11.1.0', 'Manifest version must be 11.1.0.');
 $check(($manifest['entrypoint'] ?? null) === 'deploy/install.sh', 'Entrypoint is not selected.');
 $check(($manifest['supports_fresh_install'] ?? null) === true, 'v11 must support standalone fresh install.');
 $check(($manifest['managed_site_upgrade_contract'] ?? null) === 'external-runtime-v1', 'External runtime contract is missing.');
 
 $installer = (string) file_get_contents($root . '/deploy/install.sh');
 foreach ([
-    "NEW_VERSION='11.0.0'",
+    "NEW_VERSION='11.1.0'",
     "OLD_VERSION='10.30.2'",
     '--standalone',
     'printenv INSTALL_DIR',

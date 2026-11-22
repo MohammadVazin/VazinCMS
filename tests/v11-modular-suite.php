@@ -51,7 +51,7 @@ $cleanup = static function (string $dir) use (&$cleanup): void {
 
 try {
     // 1. Version & Pure Micro-Core Verification
-    $assert(Version::current() === '11.0.0', 'Expected Version 11.0.0, got ' . Version::current());
+    $assert(Version::current() === '11.1.0', 'Expected Version 11.1.0, got ' . Version::current());
     $assert(!is_file($root . '/src/TravelVisaCommerceService.php'), 'Vertical TravelVisa class still in src/');
     $assert(!is_file($root . '/src/VisaApplicationService.php'), 'Vertical Visa class still in src/');
     $assert(!is_dir($root . '/extensions/modules/vazin-ai-site-assistant'), 'Proprietary AI module still in public repo');
@@ -251,7 +251,43 @@ try {
     PageCacheService::invalidateTag('content');
     $assert(PageCacheService::get(1, 'example.com', '/fa', []) === null, 'PageCache tag invalidation failed');
 
-    echo "V11_MODULAR_SUITE=PASS all_13_pillars_verified\n";
+    // 14. Comments & Star Reviews Module (Moderation + Average Rating + Honeypot)
+    $comments = new \VazinCMS\Modules\Comments\CommentsService(new ModuleDatabase($pdo, 'vazin-comments', 1));
+    $c1 = $comments->submit(['target_type' => 'product', 'target_key' => 'pro-cms-01', 'author_name' => 'Nima', 'author_email' => 'nima@example.com', 'rating' => 5, 'body' => 'فوق‌العاده سریع و امن!']);
+    $c2 = $comments->submit(['target_type' => 'product', 'target_key' => 'pro-cms-01', 'author_name' => 'Maryam', 'author_email' => 'maryam@example.com', 'rating' => 4, 'body' => 'خیلی بهتر از وردپرس بود.']);
+    $assert($comments->approvedForTarget('product', 'pro-cms-01')['count'] === 0, 'Pending comments must not appear before moderation');
+    $comments->moderate((int) $c1['id'], 'approved');
+    $comments->moderate((int) $c2['id'], 'approved');
+    $approvedSummary = $comments->approvedForTarget('product', 'pro-cms-01');
+    $assert($approvedSummary['count'] === 2 && $approvedSummary['average_rating'] === 4.5, 'Comments moderation or rating average failed');
+
+    // 15. Privacy-First Cookieless Analytics Module
+    $analytics = new \VazinCMS\Modules\Analytics\AnalyticsService(new ModuleDatabase($pdo, 'vazin-analytics', 1));
+    $analytics->recordHit('/shop', 'https://google.com/search', 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0)', '203.0.113.10');
+    $analytics->recordHit('/courses', '', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', '203.0.113.11');
+    $analytics->recordHit('/shop', '', 'Googlebot/2.1', '66.249.66.1');
+    $stats = $analytics->summary();
+    $assert($stats['total_views'] === 2 && $stats['unique_visitors'] === 2 && $stats['devices']['bot'] === 1, 'Analytics bot filtering or visitor count failed');
+
+    // 16. VIP Memberships & Paywall Block
+    $memberships = new \VazinCMS\Modules\Memberships\MembershipService(new ModuleDatabase($pdo, 'vazin-memberships', 1));
+    $memberships->createPlan(['plan_key' => 'pro-vip', 'title' => 'اشتراک ویژه ماهانه', 'duration_days' => 30, 'price' => 50]);
+    $assert(!$memberships->hasActiveAccess('vip@example.com', 'pro-vip'), 'Non-member should not have VIP access');
+    $memberships->grantSubscription('pro-vip', 'vip@example.com', 'VIP User');
+    $assert($memberships->hasActiveAccess('vip@example.com', 'pro-vip'), 'Granted member should have active VIP access');
+    $lockedHtml = BlockEditor::render(BlockEditor::decode(json_encode([
+        'schema' => 1,
+        'blocks' => [['type' => 'vazin-memberships/paywall', 'data' => ['plan_key' => 'pro-vip', 'teaser' => 'فقط اعضای ویژه', 'vip_content' => 'SECRET_VIP_TEXT']]],
+    ], JSON_THROW_ON_ERROR)));
+    $assert(str_contains($lockedHtml, 'فقط اعضای ویژه') && !str_contains($lockedHtml, 'SECRET_VIP_TEXT'), 'Anonymous visitor saw locked VIP paywall content');
+
+    // 17. Multi-Theme Bundled Ecosystem Verification
+    foreach (['vazin-default', 'vazin-editorial', 'vazin-storefront'] as $themeKey) {
+        $tm = ExtensionManifest::fromDirectory($root . '/extensions/themes/' . $themeKey);
+        $assert($tm->type() === 'theme', "Theme {$themeKey} manifest invalid");
+    }
+
+    echo "V11_MODULAR_SUITE=PASS all_17_pillars_verified\n";
 } finally {
     Database::reset();
     $cleanup($tmpDir);

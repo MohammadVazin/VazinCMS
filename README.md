@@ -1,4 +1,4 @@
-# VazinCMS v11.0.0
+# VazinCMS v11.1.0
 
 **Next-Generation Capability-Isolated, Module-Centric Content Management System**  
 *Engineered to outperform WordPress in security, speed, multi-tenancy, and modularity — suitable for every website.*
@@ -49,9 +49,17 @@ docker compose up -d --build
 - **`vazin-lms`** — Courses, curriculum lessons, student enrollments, progress tracking, completion certificates, and `vazin-lms/course-grid` block.
 - **`vazin-booking`** — Bookable services, time-slot capacity enforcement, reservation tracking codes, and `vazin-booking/service-scheduler` block.
 - **`vazin-forms`** — Schema-driven interactive forms, honeypot anti-spam, submissions inbox, and `vazin-forms/form` block.
+- **`vazin-comments`** — Comments, Q&A, 1–5 star product/course/post ratings, moderation queue, and `vazin-comments/reviews` block.
+- **`vazin-analytics`** — Privacy-first cookieless analytics (pageviews, top pages, device stats) with zero external JS bloat.
+- **`vazin-memberships`** — VIP subscription plans, time-bound member grants, and `vazin-memberships/paywall` gated content block.
 - **`seo`** — Sitemaps, Robots, Canonical/OpenGraph metadata, and SEO advisories.
 - **`publishing`** — Editorial workflows, scheduled publishing, and multi-channel syndication.
 - **`content-migration`** — One-click **WordPress WXR XML Importer** (migrates posts, pages, authors, terms, and media).
+
+### Official Bundled Themes (`extensions/themes/`)
+- **`vazin-default`** — Clean, fast multilingual universal starter theme.
+- **`vazin-editorial`** — Typography-first theme built for news portals, magazines, and blogs.
+- **`vazin-storefront`** — Conversion-focused theme for e-commerce, academies, and SaaS sites.
 
 Scaffold your own Schema v2 module in 1 second:
 ```bash

@@ -5,7 +5,7 @@ VERSION="$(tr -d '[:space:]' < "$ROOT/VERSION")"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([+-][0-9A-Za-z.-]+)?$ ]]
-[[ "$VERSION" == "11.0.0" ]]
+[[ "$VERSION" == "11.1.0" ]]
 
 php "$ROOT/scripts/generate-manifest.php" --check
 (cd "$ROOT" && sha256sum -c MANIFEST.sha256 >/dev/null)
@@ -15,7 +15,7 @@ import json, sys
 m = json.load(open(sys.argv[1], encoding='utf-8'))
 version = sys.argv[2]
 assert m['schema'] == 2 and m['product'] == 'VazinCMS' and m['type'] == 'vazincms'
-assert m['version'] == version == '11.0.0'
+assert m['version'] == version == '11.1.0'
 assert m['minimum_php'] == '8.2' and m['supports_fresh_install'] is True
 assert m['requires'] == {}
 PY
